@@ -1,0 +1,9 @@
+
+
+> flowise-components@2.2.3 build /Users/ariharrison/Documents/GitHub/ApexM/packages/components
+> tsc && gulp
+
+[[90m06:16:45[39m] Requiring external module [35mts-node/register[39m
+[[90m06:16:46[39m] Using gulpfile [35m~/Documents/GitHub/ApexM/packages/components/gulpfile.ts[39m
+[[90m06:16:46[39m] Starting '[36mdefault[39m'...
+[[90m06:16:46[39m] Finished '[36mdefault[39m' after [35m120 ms[39m
