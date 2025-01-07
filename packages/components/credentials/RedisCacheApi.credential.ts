@@ -11,6 +11,8 @@ class RedisCacheApi implements INodeCredential {
         this.label = 'Redis API'
         this.name = 'redisCacheApi'
         this.version = 1.0
+        this.description =
+            'Refer to <a target="_blank" href="https://redis.io/learn/howtos/solutions/microservices/api-gateway-caching">official guide</a> on how to use Redis for API Gateway Caching'
         this.inputs = [
             {
                 label: 'Redis Host',
