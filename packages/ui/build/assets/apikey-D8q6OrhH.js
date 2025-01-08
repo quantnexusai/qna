@@ -1,1 +1,0 @@
-import{aE as t}from"./index-YrBb95ol.js";const a=()=>t.get("/apikey"),o=e=>t.post("/apikey",e),i=(e,p)=>t.put(`/apikey/${e}`,p),s=e=>t.delete(`/apikey/${e}`),c=e=>t.post("/apikey/import",e),y={getAllAPIKeys:a,createNewAPI:o,updateAPI:i,deleteAPI:s,importAPI:c};export{y as a};

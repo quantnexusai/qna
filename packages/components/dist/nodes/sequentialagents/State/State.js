@@ -180,7 +180,13 @@ class State_SeqAgents {
                 chatId: options.chatId,
                 input
             };
-            let sandbox = {};
+            let sandbox = {
+                util: undefined,
+                Symbol: undefined,
+                child_process: undefined,
+                fs: undefined,
+                process: undefined
+            };
             sandbox['$vars'] = (0, utils_1.prepareSandboxVars)(variables);
             sandbox['$flow'] = flow;
             const builtinDeps = process.env.TOOL_FUNCTION_BUILTIN_DEP
@@ -194,7 +200,10 @@ class State_SeqAgents {
                 require: {
                     external: { modules: deps },
                     builtin: builtinDeps
-                }
+                },
+                eval: false,
+                wasm: false,
+                timeout: 10000
             };
             const vm = new nodevm_1.NodeVM(nodeVMOptions);
             try {

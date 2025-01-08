@@ -125,6 +125,15 @@ class SQLiteRecordManager {
         this.tableName = tableName || 'upsertion_records';
         this.config = config;
     }
+    sanitizeTableName(tableName) {
+        // Trim and normalize case, turn whitespace into underscores
+        tableName = tableName.trim().toLowerCase().replace(/\s+/g, '_');
+        // Validate using a regex (alphanumeric and underscores only)
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+            throw new Error('Invalid table name');
+        }
+        return tableName;
+    }
     async getDataSource() {
         const { sqliteOptions } = this.config;
         if (!sqliteOptions) {
@@ -138,8 +147,9 @@ class SQLiteRecordManager {
         try {
             const dataSource = await this.getDataSource();
             const queryRunner = dataSource.createQueryRunner();
+            const tableName = this.sanitizeTableName(this.tableName);
             await queryRunner.manager.query(`
-CREATE TABLE IF NOT EXISTS "${this.tableName}" (
+CREATE TABLE IF NOT EXISTS "${tableName}" (
   uuid TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   key TEXT NOT NULL,
   namespace TEXT NOT NULL,
@@ -147,10 +157,10 @@ CREATE TABLE IF NOT EXISTS "${this.tableName}" (
   group_id TEXT,
   UNIQUE (key, namespace)
 );
-CREATE INDEX IF NOT EXISTS updated_at_index ON "${this.tableName}" (updated_at);
-CREATE INDEX IF NOT EXISTS key_index ON "${this.tableName}" (key);
-CREATE INDEX IF NOT EXISTS namespace_index ON "${this.tableName}" (namespace);
-CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
+CREATE INDEX IF NOT EXISTS updated_at_index ON "${tableName}" (updated_at);
+CREATE INDEX IF NOT EXISTS key_index ON "${tableName}" (key);
+CREATE INDEX IF NOT EXISTS namespace_index ON "${tableName}" (namespace);
+CREATE INDEX IF NOT EXISTS group_id_index ON "${tableName}" (group_id);`);
             await queryRunner.release();
         }
         catch (e) {
@@ -186,6 +196,7 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
         }
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         const updatedAt = await this.getTime();
         const { timeAtLeast, groupIds: _groupIds } = updateOptions ?? {};
         if (timeAtLeast && updatedAt < timeAtLeast) {
@@ -202,7 +213,7 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
             groupIds[i] ?? null // Ensure groupIds[i] is null if undefined
         ]);
         const query = `
-        INSERT INTO "${this.tableName}" (key, namespace, updated_at, group_id)
+        INSERT INTO "${tableName}" (key, namespace, updated_at, group_id)
         VALUES (?, ?, ?, ?)
         ON CONFLICT (key, namespace) DO UPDATE SET updated_at = excluded.updated_at`;
         try {
@@ -225,11 +236,12 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
         if (keys.length === 0) {
             return [];
         }
+        const tableName = this.sanitizeTableName(this.tableName);
         // Prepare the placeholders and the query
         const placeholders = keys.map(() => `?`).join(', ');
         const sql = `
     SELECT key
-    FROM "${this.tableName}"
+    FROM "${tableName}"
     WHERE namespace = ? AND key IN (${placeholders})`;
         // Initialize an array to fill with the existence checks
         const existsArray = new Array(keys.length).fill(false);
@@ -257,7 +269,8 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
     }
     async listKeys(options) {
         const { before, after, limit, groupIds } = options ?? {};
-        let query = `SELECT key FROM "${this.tableName}" WHERE namespace = ?`;
+        const tableName = this.sanitizeTableName(this.tableName);
+        let query = `SELECT key FROM "${tableName}" WHERE namespace = ?`;
         const values = [this.namespace];
         if (before) {
             query += ` AND updated_at < ?`;
@@ -301,8 +314,9 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${this.tableName}" (group_id);`);
         }
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         const placeholders = keys.map(() => '?').join(', ');
-        const query = `DELETE FROM "${this.tableName}" WHERE namespace = ? AND key IN (${placeholders});`;
+        const query = `DELETE FROM "${tableName}" WHERE namespace = ? AND key IN (${placeholders});`;
         const values = [this.namespace, ...keys].map((v) => (typeof v !== 'string' ? `${v}` : v));
         // Directly using try/catch with async/await for cleaner flow
         try {

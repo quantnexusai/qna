@@ -12,8 +12,9 @@ export declare abstract class VectorStoreDriver {
     getHost(): string;
     getPort(): number;
     getDatabase(): string;
-    getTableName(): any;
+    getTableName(): string;
     getEmbeddings(): Embeddings;
+    sanitizeTableName(tableName: string): string;
     getCredentials(): Promise<{
         user: any;
         password: any;

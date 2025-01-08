@@ -139,7 +139,13 @@ const processImageMessage = async (llm, nodeData, options) => {
 exports.processImageMessage = processImageMessage;
 const getVM = async (appDataSource, databaseEntities, nodeData, flow) => {
     const variables = await (0, utils_1.getVars)(appDataSource, databaseEntities, nodeData);
-    let sandbox = {};
+    let sandbox = {
+        util: undefined,
+        Symbol: undefined,
+        child_process: undefined,
+        fs: undefined,
+        process: undefined
+    };
     sandbox['$vars'] = (0, utils_1.prepareSandboxVars)(variables);
     sandbox['$flow'] = flow;
     const builtinDeps = process.env.TOOL_FUNCTION_BUILTIN_DEP
@@ -153,7 +159,10 @@ const getVM = async (appDataSource, databaseEntities, nodeData, flow) => {
         require: {
             external: { modules: deps },
             builtin: builtinDeps
-        }
+        },
+        eval: false,
+        wasm: false,
+        timeout: 10000
     };
     return new nodevm_1.NodeVM(nodeVMOptions);
 };

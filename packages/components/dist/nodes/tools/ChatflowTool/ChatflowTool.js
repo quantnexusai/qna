@@ -230,7 +230,15 @@ class ChatflowTool extends tools_1.StructuredTool {
             },
             body: JSON.stringify(body)
         };
-        let sandbox = { $callOptions: options, $callBody: body };
+        let sandbox = {
+            $callOptions: options,
+            $callBody: body,
+            util: undefined,
+            Symbol: undefined,
+            child_process: undefined,
+            fs: undefined,
+            process: undefined
+        };
         const code = `
 const fetch = require('node-fetch');
 const url = "${this.baseURL}/api/v1/prediction/${this.chatflowid}";
@@ -259,7 +267,10 @@ try {
             require: {
                 external: { modules: deps },
                 builtin: builtinDeps
-            }
+            },
+            eval: false,
+            wasm: false,
+            timeout: 10000
         };
         const vm = new nodevm_1.NodeVM(vmOptions);
         const response = await vm.run(`module.exports = async function() {${code}}()`, __dirname);

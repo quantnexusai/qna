@@ -12,6 +12,15 @@ class SqliteSaver extends langgraph_1.BaseCheckpointSaver {
         const { threadId } = config;
         this.threadId = threadId;
     }
+    sanitizeTableName(tableName) {
+        // Trim and normalize case, turn whitespace into underscores
+        tableName = tableName.trim().toLowerCase().replace(/\s+/g, '_');
+        // Validate using a regex (alphanumeric and underscores only)
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+            throw new Error('Invalid table name');
+        }
+        return tableName;
+    }
     async getDataSource() {
         const { datasourceOptions } = this.config;
         const dataSource = new typeorm_1.DataSource(datasourceOptions);
@@ -24,8 +33,9 @@ class SqliteSaver extends langgraph_1.BaseCheckpointSaver {
         }
         try {
             const queryRunner = dataSource.createQueryRunner();
+            const tableName = this.sanitizeTableName(this.tableName);
             await queryRunner.manager.query(`
-CREATE TABLE IF NOT EXISTS ${this.tableName} (
+CREATE TABLE IF NOT EXISTS ${tableName} (
     thread_id TEXT NOT NULL,
     checkpoint_id TEXT NOT NULL,
     parent_id TEXT,
@@ -45,11 +55,12 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
         await this.setup(dataSource);
         const thread_id = config.configurable?.thread_id || this.threadId;
         const checkpoint_id = config.configurable?.checkpoint_id;
+        const tableName = this.sanitizeTableName(this.tableName);
         if (checkpoint_id) {
             try {
                 const queryRunner = dataSource.createQueryRunner();
                 const keys = [thread_id, checkpoint_id];
-                const sql = `SELECT checkpoint, parent_id, metadata FROM ${this.tableName} WHERE thread_id = ? AND checkpoint_id = ?`;
+                const sql = `SELECT checkpoint, parent_id, metadata FROM ${tableName} WHERE thread_id = ? AND checkpoint_id = ?`;
                 const rows = await queryRunner.manager.query(sql, [...keys]);
                 await queryRunner.release();
                 if (rows && rows.length > 0) {
@@ -69,8 +80,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
                 }
             }
             catch (error) {
-                console.error(`Error retrieving ${this.tableName}`, error);
-                throw new Error(`Error retrieving ${this.tableName}`);
+                console.error(`Error retrieving ${tableName}`, error);
+                throw new Error(`Error retrieving ${tableName}`);
             }
             finally {
                 await dataSource.destroy();
@@ -80,7 +91,7 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
             try {
                 const queryRunner = dataSource.createQueryRunner();
                 const keys = [thread_id];
-                const sql = `SELECT thread_id, checkpoint_id, parent_id, checkpoint, metadata FROM ${this.tableName} WHERE thread_id = ? ORDER BY checkpoint_id DESC LIMIT 1`;
+                const sql = `SELECT thread_id, checkpoint_id, parent_id, checkpoint, metadata FROM ${tableName} WHERE thread_id = ? ORDER BY checkpoint_id DESC LIMIT 1`;
                 const rows = await queryRunner.manager.query(sql, [...keys]);
                 await queryRunner.release();
                 if (rows && rows.length > 0) {
@@ -105,8 +116,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
                 }
             }
             catch (error) {
-                console.error(`Error retrieving ${this.tableName}`, error);
-                throw new Error(`Error retrieving ${this.tableName}`);
+                console.error(`Error retrieving ${tableName}`, error);
+                throw new Error(`Error retrieving ${tableName}`);
             }
             finally {
                 await dataSource.destroy();
@@ -119,7 +130,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
         await this.setup(dataSource);
         const queryRunner = dataSource.createQueryRunner();
         const thread_id = config.configurable?.thread_id || this.threadId;
-        let sql = `SELECT thread_id, checkpoint_id, parent_id, checkpoint, metadata FROM ${this.tableName} WHERE thread_id = ? ${before ? 'AND checkpoint_id < ?' : ''} ORDER BY checkpoint_id DESC`;
+        const tableName = this.sanitizeTableName(this.tableName);
+        let sql = `SELECT thread_id, checkpoint_id, parent_id, checkpoint, metadata FROM ${tableName} WHERE thread_id = ? ${before ? 'AND checkpoint_id < ?' : ''} ORDER BY checkpoint_id DESC`;
         if (limit) {
             sql += ` LIMIT ${limit}`;
         }
@@ -151,8 +163,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
             }
         }
         catch (error) {
-            console.error(`Error listing ${this.tableName}`, error);
-            throw new Error(`Error listing ${this.tableName}`);
+            console.error(`Error listing ${tableName}`, error);
+            throw new Error(`Error listing ${tableName}`);
         }
         finally {
             await dataSource.destroy();
@@ -172,7 +184,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
                 this.serde.stringify(checkpoint),
                 this.serde.stringify(metadata)
             ];
-            const query = `INSERT OR REPLACE INTO ${this.tableName} (thread_id, checkpoint_id, parent_id, checkpoint, metadata) VALUES (?, ?, ?, ?, ?)`;
+            const tableName = this.sanitizeTableName(this.tableName);
+            const query = `INSERT OR REPLACE INTO ${tableName} (thread_id, checkpoint_id, parent_id, checkpoint, metadata) VALUES (?, ?, ?, ?, ?)`;
             await queryRunner.manager.query(query, row);
             await queryRunner.release();
         }
@@ -196,7 +209,8 @@ CREATE TABLE IF NOT EXISTS ${this.tableName} (
         }
         const dataSource = await this.getDataSource();
         await this.setup(dataSource);
-        const query = `DELETE FROM "${this.tableName}" WHERE thread_id = ?;`;
+        const tableName = this.sanitizeTableName(this.tableName);
+        const query = `DELETE FROM "${tableName}" WHERE thread_id = ?;`;
         try {
             const queryRunner = dataSource.createQueryRunner();
             await queryRunner.manager.query(query, [threadId]);

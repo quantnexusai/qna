@@ -111,9 +111,10 @@ const addSingleFileToStorage = async (mime, bf, fileName, ...paths) => {
 exports.addSingleFileToStorage = addSingleFileToStorage;
 const getFileFromStorage = async (file, ...paths) => {
     const storageType = (0, exports.getStorageType)();
+    const sanitizedFilename = _sanitizeFilename(file);
     if (storageType === 's3') {
         const { s3Client, Bucket } = (0, exports.getS3Config)();
-        let Key = paths.reduce((acc, cur) => acc + '/' + cur, '') + '/' + file;
+        let Key = paths.reduce((acc, cur) => acc + '/' + cur, '') + '/' + sanitizedFilename;
         if (Key.startsWith('/')) {
             Key = Key.substring(1);
         }
@@ -134,7 +135,7 @@ const getFileFromStorage = async (file, ...paths) => {
         return buffer;
     }
     else {
-        const fileInStorage = path_1.default.join((0, exports.getStoragePath)(), ...paths, file);
+        const fileInStorage = path_1.default.join((0, exports.getStoragePath)(), ...paths, sanitizedFilename);
         return fs_1.default.readFileSync(fileInStorage);
     }
 };

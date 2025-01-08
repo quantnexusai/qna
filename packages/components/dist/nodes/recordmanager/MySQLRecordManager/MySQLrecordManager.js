@@ -144,6 +144,15 @@ class MySQLRecordManager {
         this.tableName = tableName || 'upsertion_records';
         this.config = config;
     }
+    sanitizeTableName(tableName) {
+        // Trim and normalize case, turn whitespace into underscores
+        tableName = tableName.trim().toLowerCase().replace(/\s+/g, '_');
+        // Validate using a regex (alphanumeric and underscores only)
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+            throw new Error('Invalid table name');
+        }
+        return tableName;
+    }
     async getDataSource() {
         const { mysqlOptions } = this.config;
         if (!mysqlOptions) {
@@ -161,7 +170,8 @@ class MySQLRecordManager {
         try {
             const dataSource = await this.getDataSource();
             const queryRunner = dataSource.createQueryRunner();
-            await queryRunner.manager.query(`create table if not exists \`${this.tableName}\` (
+            const tableName = this.sanitizeTableName(this.tableName);
+            await queryRunner.manager.query(`create table if not exists \`${this.sanitizeTableName(tableName)}\` (
                 \`uuid\` varchar(36) primary key default (UUID()),
                 \`key\` varchar(255) not null,
                 \`namespace\` varchar(255) not null,
@@ -173,10 +183,10 @@ class MySQLRecordManager {
             for (const column of columns) {
                 // MySQL does not support 'IF NOT EXISTS' function for Index
                 const Check = await queryRunner.manager.query(`SELECT COUNT(1) IndexIsThere FROM INFORMATION_SCHEMA.STATISTICS 
-                        WHERE table_schema=DATABASE() AND table_name='${this.tableName}' AND index_name='${column}_index';`);
+                        WHERE table_schema=DATABASE() AND table_name='${tableName}' AND index_name='${column}_index';`);
                 if (Check[0].IndexIsThere === 0)
                     await queryRunner.manager.query(`CREATE INDEX \`${column}_index\`
-        ON \`${this.tableName}\` (\`${column}\`);`);
+        ON \`${tableName}\` (\`${column}\`);`);
             }
             await queryRunner.release();
         }
@@ -213,6 +223,7 @@ class MySQLRecordManager {
         }
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         const updatedAt = await this.getTime();
         const { timeAtLeast, groupIds: _groupIds } = updateOptions ?? {};
         if (timeAtLeast && updatedAt < timeAtLeast) {
@@ -229,7 +240,7 @@ class MySQLRecordManager {
             groupIds[i] ?? null // Ensure groupIds[i] is null if undefined
         ]);
         const query = `
-            INSERT INTO \`${this.tableName}\` (\`key\`, \`namespace\`, \`updated_at\`, \`group_id\`)
+            INSERT INTO \`${tableName}\` (\`key\`, \`namespace\`, \`updated_at\`, \`group_id\`)
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE \`updated_at\` = VALUES(\`updated_at\`)`;
         // To handle multiple files upsert
@@ -254,11 +265,12 @@ class MySQLRecordManager {
         }
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         // Prepare the placeholders and the query
         const placeholders = keys.map(() => `?`).join(', ');
         const query = `
     SELECT \`key\`
-    FROM \`${this.tableName}\`
+    FROM \`${tableName}\`
     WHERE \`namespace\` = ? AND \`key\` IN (${placeholders})`;
         // Initialize an array to fill with the existence checks
         const existsArray = new Array(keys.length).fill(false);
@@ -285,9 +297,10 @@ class MySQLRecordManager {
     async listKeys(options) {
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         try {
             const { before, after, limit, groupIds } = options ?? {};
-            let query = `SELECT \`key\` FROM \`${this.tableName}\` WHERE \`namespace\` = ?`;
+            let query = `SELECT \`key\` FROM \`${tableName}\` WHERE \`namespace\` = ?`;
             const values = [this.namespace];
             if (before) {
                 query += ` AND \`updated_at\` < ?`;
@@ -328,8 +341,9 @@ class MySQLRecordManager {
         }
         const dataSource = await this.getDataSource();
         const queryRunner = dataSource.createQueryRunner();
+        const tableName = this.sanitizeTableName(this.tableName);
         const placeholders = keys.map(() => '?').join(', ');
-        const query = `DELETE FROM \`${this.tableName}\` WHERE \`namespace\` = ? AND \`key\` IN (${placeholders});`;
+        const query = `DELETE FROM \`${tableName}\` WHERE \`namespace\` = ? AND \`key\` IN (${placeholders});`;
         const values = [this.namespace, ...keys].map((v) => (typeof v !== 'string' ? `${v}` : v));
         // Directly using try/catch with async/await for cleaner flow
         try {

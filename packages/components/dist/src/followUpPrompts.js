@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateFollowUpPrompts = void 0;
 const Interface_1 = require("./Interface");
@@ -11,6 +14,7 @@ const zod_1 = require("zod");
 const prompts_1 = require("@langchain/core/prompts");
 const output_parsers_1 = require("@langchain/core/output_parsers");
 const groq_1 = require("@langchain/groq");
+const ollama_1 = __importDefault(require("ollama"));
 const FollowUpPromptType = zod_1.z
     .object({
     questions: zod_1.z.array(zod_1.z.string())
@@ -115,6 +119,38 @@ const generateFollowUpPrompts = async (followUpPromptsConfig, apiMessageContent,
                 const structuredLLM = llm.withStructuredOutput(FollowUpPromptType);
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt);
                 return structuredResponse;
+            }
+            case Interface_1.FollowUpPromptProvider.OLLAMA: {
+                const response = await ollama_1.default.chat({
+                    model: providerConfig.modelName,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: followUpPromptsPrompt
+                        }
+                    ],
+                    format: {
+                        type: 'object',
+                        properties: {
+                            questions: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                },
+                                minItems: 3,
+                                maxItems: 3,
+                                description: 'Three follow-up questions based on the conversation history'
+                            }
+                        },
+                        required: ['questions'],
+                        additionalProperties: false
+                    },
+                    options: {
+                        temperature: parseFloat(`${providerConfig.temperature}`)
+                    }
+                });
+                const result = FollowUpPromptType.parse(JSON.parse(response.message.content));
+                return result;
             }
         }
     }

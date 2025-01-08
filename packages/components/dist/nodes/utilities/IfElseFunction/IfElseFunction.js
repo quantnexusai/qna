@@ -103,7 +103,14 @@ class IfElseFunction_Utilities {
                 inputVars[key] = value;
             }
         }
-        let sandbox = { $input: input };
+        let sandbox = {
+            $input: input,
+            util: undefined,
+            Symbol: undefined,
+            child_process: undefined,
+            fs: undefined,
+            process: undefined
+        };
         sandbox['$vars'] = (0, utils_1.prepareSandboxVars)(variables);
         sandbox['$flow'] = flow;
         if (Object.keys(inputVars).length) {
@@ -122,7 +129,10 @@ class IfElseFunction_Utilities {
             require: {
                 external: { modules: deps },
                 builtin: builtinDeps
-            }
+            },
+            eval: false,
+            wasm: false,
+            timeout: 10000
         };
         const vm = new nodevm_1.NodeVM(nodeVMOptions);
         try {

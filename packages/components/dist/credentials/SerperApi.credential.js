@@ -6,7 +6,7 @@ class SerperApi {
         this.name = 'serperApi';
         this.version = 1.0;
         this.description =
-            'Refer to <a target="_blank" href="https://serpapi.com/search-api">official guide</a> on how to create an API key for Serp API';
+            'Refer to <a target="_blank" href="https://serper.dev/">official guide</a> on how to create an API key for Serper';
         this.inputs = [
             {
                 label: 'Serper Api Key',

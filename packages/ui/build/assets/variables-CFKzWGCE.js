@@ -1,1 +1,0 @@
-import{aE as e}from"./index-YrBb95ol.js";const l=()=>e.get("/variables"),s=a=>e.post("/variables",a),i=(a,t)=>e.put(`/variables/${a}`,t),r=a=>e.delete(`/variables/${a}`),o={getAllVariables:l,createVariable:s,updateVariable:i,deleteVariable:r};export{o as v};

@@ -21,10 +21,19 @@ class VectorStoreDriver {
         return (0, utils_1.getDatabase)(this.nodeData);
     }
     getTableName() {
-        return (0, utils_1.getTableName)(this.nodeData);
+        return this.sanitizeTableName((0, utils_1.getTableName)(this.nodeData));
     }
     getEmbeddings() {
         return this.nodeData.inputs?.embeddings;
+    }
+    sanitizeTableName(tableName) {
+        // Trim and normalize case, turn whitespace into underscores
+        tableName = tableName.trim().toLowerCase().replace(/\s+/g, '_');
+        // Validate using a regex (alphanumeric and underscores only)
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+            throw new Error('Invalid table name');
+        }
+        return tableName;
     }
     async getCredentials() {
         const credentialData = await (0, src_1.getCredentialData)(this.nodeData.credential ?? '', this.options);

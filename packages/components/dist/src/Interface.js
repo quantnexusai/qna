@@ -51,5 +51,6 @@ var FollowUpPromptProvider;
     FollowUpPromptProvider["MISTRALAI"] = "chatMistralAI";
     FollowUpPromptProvider["OPENAI"] = "chatOpenAI";
     FollowUpPromptProvider["GROQ"] = "groqChat";
+    FollowUpPromptProvider["OLLAMA"] = "ollama";
 })(FollowUpPromptProvider || (exports.FollowUpPromptProvider = FollowUpPromptProvider = {}));
 //# sourceMappingURL=Interface.js.map

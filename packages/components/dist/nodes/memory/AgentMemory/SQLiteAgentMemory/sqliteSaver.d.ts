@@ -9,6 +9,7 @@ export declare class SqliteSaver extends BaseCheckpointSaver implements MemoryMe
     threadId: string;
     tableName: string;
     constructor(config: SaverOptions, serde?: SerializerProtocol<Checkpoint>);
+    sanitizeTableName(tableName: string): string;
     private getDataSource;
     private setup;
     getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;

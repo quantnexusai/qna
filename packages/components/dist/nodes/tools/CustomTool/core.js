@@ -51,7 +51,13 @@ class DynamicStructuredTool extends tools_1.StructuredTool {
     }
     // @ts-ignore
     async _call(arg, _, flowConfig) {
-        let sandbox = {};
+        let sandbox = {
+            util: undefined,
+            Symbol: undefined,
+            child_process: undefined,
+            fs: undefined,
+            process: undefined
+        };
         if (typeof arg === 'object' && Object.keys(arg).length) {
             for (const item in arg) {
                 sandbox[`$${item}`] = arg[item];
@@ -73,7 +79,10 @@ class DynamicStructuredTool extends tools_1.StructuredTool {
             require: {
                 external: { modules: deps },
                 builtin: builtinDeps
-            }
+            },
+            eval: false,
+            wasm: false,
+            timeout: 10000
         };
         const vm = new nodevm_1.NodeVM(options);
         const response = await vm.run(`module.exports = async function() {${this.code}}()`, __dirname);
