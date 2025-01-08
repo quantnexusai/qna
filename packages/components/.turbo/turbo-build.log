@@ -3,7 +3,7 @@
 > flowise-components@2.2.3 build /Users/ariharrison/Documents/GitHub/qna/packages/components
 > tsc && gulp
 
-[[90m16:22:39[39m] Requiring external module [35mts-node/register[39m
-[[90m16:22:40[39m] Using gulpfile [35m~/Documents/GitHub/qna/packages/components/gulpfile.ts[39m
-[[90m16:22:40[39m] Starting '[36mdefault[39m'...
-[[90m16:22:40[39m] Finished '[36mdefault[39m' after [35m146 ms[39m
+[[90m16:56:08[39m] Requiring external module [35mts-node/register[39m
+[[90m16:56:09[39m] Using gulpfile [35m~/Documents/GitHub/qna/packages/components/gulpfile.ts[39m
+[[90m16:56:09[39m] Starting '[36mdefault[39m'...
+[[90m16:56:09[39m] Finished '[36mdefault[39m' after [35m136 ms[39m
