@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -29,9 +39,49 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.expressRequestLogger = expressRequestLogger;
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const node_os_1 = require("node:os");
 const config_1 = __importDefault(require("./config")); // should be replaced by node-config or similar
 const winston_1 = require("winston");
+const { S3StreamLogger } = require('s3-streamlogger');
 const { combine, timestamp, printf, errors } = winston_1.format;
+let s3ServerStream;
+let s3ErrorStream;
+let s3ServerReqStream;
+if (process.env.STORAGE_TYPE === 's3') {
+    const accessKeyId = process.env.S3_STORAGE_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_STORAGE_SECRET_ACCESS_KEY;
+    const region = process.env.S3_STORAGE_REGION;
+    const s3Bucket = process.env.S3_STORAGE_BUCKET_NAME;
+    const customURL = process.env.S3_ENDPOINT_URL;
+    const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === 'true';
+    const s3Config = {
+        region: region,
+        endpoint: customURL,
+        forcePathStyle: forcePathStyle,
+        credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
+        }
+    };
+    s3ServerStream = new S3StreamLogger({
+        bucket: s3Bucket,
+        folder: 'logs/server',
+        name_format: `server-%Y-%m-%d-%H-%M-%S-%L-${(0, node_os_1.hostname)()}.log`,
+        config: s3Config
+    });
+    s3ErrorStream = new S3StreamLogger({
+        bucket: s3Bucket,
+        folder: 'logs/error',
+        name_format: `server-error-%Y-%m-%d-%H-%M-%S-%L-${(0, node_os_1.hostname)()}.log`,
+        config: s3Config
+    });
+    s3ServerReqStream = new S3StreamLogger({
+        bucket: s3Bucket,
+        folder: 'logs/requests',
+        name_format: `server-requests-%Y-%m-%d-%H-%M-%S-%L-${(0, node_os_1.hostname)()}.log.jsonl`,
+        config: s3Config
+    });
+}
 // expect the log dir be relative to the projects root
 const logDir = config_1.default.logging.dir;
 // Create the log directory if it doesn't exist
@@ -48,32 +98,59 @@ const logger = (0, winston_1.createLogger)({
     },
     transports: [
         new winston_1.transports.Console(),
-        new winston_1.transports.File({
-            filename: path.join(logDir, config_1.default.logging.server.filename ?? 'server.log'),
-            level: config_1.default.logging.server.level ?? 'info'
-        }),
-        new winston_1.transports.File({
-            filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log'),
-            level: 'error' // Log only errors to this file
-        })
+        ...(!process.env.STORAGE_TYPE || process.env.STORAGE_TYPE === 'local'
+            ? [
+                new winston_1.transports.File({
+                    filename: path.join(logDir, config_1.default.logging.server.filename ?? 'server.log'),
+                    level: config_1.default.logging.server.level ?? 'info'
+                }),
+                new winston_1.transports.File({
+                    filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log'),
+                    level: 'error' // Log only errors to this file
+                })
+            ]
+            : []),
+        ...(process.env.STORAGE_TYPE === 's3'
+            ? [
+                new winston_1.transports.Stream({
+                    stream: s3ServerStream
+                })
+            ]
+            : [])
     ],
     exceptionHandlers: [
-        new winston_1.transports.File({
-            filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log')
-        })
+        ...(!process.env.STORAGE_TYPE || process.env.STORAGE_TYPE === 'local'
+            ? [
+                new winston_1.transports.File({
+                    filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log')
+                })
+            ]
+            : []),
+        ...(process.env.STORAGE_TYPE === 's3'
+            ? [
+                new winston_1.transports.Stream({
+                    stream: s3ErrorStream
+                })
+            ]
+            : [])
     ],
     rejectionHandlers: [
-        new winston_1.transports.File({
-            filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log')
-        })
+        ...(!process.env.STORAGE_TYPE || process.env.STORAGE_TYPE === 'local'
+            ? [
+                new winston_1.transports.File({
+                    filename: path.join(logDir, config_1.default.logging.server.errorFilename ?? 'server-error.log')
+                })
+            ]
+            : []),
+        ...(process.env.STORAGE_TYPE === 's3'
+            ? [
+                new winston_1.transports.Stream({
+                    stream: s3ErrorStream
+                })
+            ]
+            : [])
     ]
 });
-/**
- * This function is used by express as a middleware.
- * @example
- *   this.app = express()
- *   this.app.use(expressRequestLogger)
- */
 function expressRequestLogger(req, res, next) {
     const unwantedLogURLs = ['/api/v1/node-icon/', '/api/v1/components-credentials-icon/'];
     if (/\/api\/v1\//i.test(req.url) && !unwantedLogURLs.some((url) => new RegExp(url, 'i').test(req.url))) {
@@ -91,10 +168,21 @@ function expressRequestLogger(req, res, next) {
                 }
             },
             transports: [
-                new winston_1.transports.File({
-                    filename: path.join(logDir, config_1.default.logging.express.filename ?? 'server-requests.log.jsonl'),
-                    level: config_1.default.logging.express.level ?? 'debug'
-                })
+                ...(!process.env.STORAGE_TYPE || process.env.STORAGE_TYPE === 'local'
+                    ? [
+                        new winston_1.transports.File({
+                            filename: path.join(logDir, config_1.default.logging.express.filename ?? 'server-requests.log.jsonl'),
+                            level: config_1.default.logging.express.level ?? 'debug'
+                        })
+                    ]
+                    : []),
+                ...(process.env.STORAGE_TYPE === 's3'
+                    ? [
+                        new winston_1.transports.Stream({
+                            stream: s3ServerReqStream
+                        })
+                    ]
+                    : [])
             ]
         });
         const getRequestEmoji = (method) => {

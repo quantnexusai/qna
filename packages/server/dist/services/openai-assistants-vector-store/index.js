@@ -5,12 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const openai_1 = __importDefault(require("openai"));
 const http_status_codes_1 = require("http-status-codes");
-const fs_1 = __importDefault(require("fs"));
 const Credential_1 = require("../../database/entities/Credential");
 const internalFlowiseError_1 = require("../../errors/internalFlowiseError");
 const utils_1 = require("../../errors/utils");
 const getRunningExpressApp_1 = require("../../utils/getRunningExpressApp");
 const utils_2 = require("../../utils");
+const flowise_components_1 = require("flowise-components");
 const getAssistantVectorStore = async (credentialId, vectorStoreId) => {
     try {
         const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
@@ -154,13 +154,14 @@ const uploadFilesToAssistantVectorStore = async (credentialId, vectorStoreId, fi
         const openai = new openai_1.default({ apiKey: openAIApiKey });
         const uploadedFiles = [];
         for (const file of files) {
-            const toFile = await openai_1.default.toFile(fs_1.default.readFileSync(file.filePath), file.fileName);
+            const fileBuffer = await (0, flowise_components_1.getFileFromUpload)(file.filePath);
+            const toFile = await openai_1.default.toFile(fileBuffer, file.fileName);
             const createdFile = await openai.files.create({
                 file: toFile,
                 purpose: 'assistants'
             });
             uploadedFiles.push(createdFile);
-            fs_1.default.unlinkSync(file.filePath);
+            await (0, flowise_components_1.removeSpecificFileFromUpload)(file.filePath);
         }
         const file_ids = [...uploadedFiles.map((file) => file.id)];
         const res = await openai.beta.vectorStores.fileBatches.createAndPoll(vectorStoreId, {

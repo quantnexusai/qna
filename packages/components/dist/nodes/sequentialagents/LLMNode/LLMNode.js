@@ -136,7 +136,7 @@ class LLMNode_SeqAgents {
     constructor() {
         this.label = 'LLM Node';
         this.name = 'seqLLMNode';
-        this.version = 4.0;
+        this.version = 4.1;
         this.type = 'LLMNode';
         this.icon = 'llmNode.svg';
         this.category = 'Sequential Agents';
@@ -212,9 +212,10 @@ class LLMNode_SeqAgents {
                 additionalParams: true
             },
             {
-                label: 'Start | Agent | Condition | LLM | Tool Node',
+                label: 'Sequential Node',
                 name: 'sequentialNode',
-                type: 'Start | Agent | Condition | LLMNode | ToolNode',
+                type: 'Start | Agent | Condition | LLMNode | ToolNode | CustomFunction | ExecuteFlow',
+                description: 'Can be connected to one of the following nodes: Start, Agent, Condition, LLM, Tool Node, Custom Function, Execute Flow',
                 list: true
             },
             {
@@ -344,7 +345,9 @@ class LLMNode_SeqAgents {
         let tools = nodeData.inputs?.tools;
         tools = (0, lodash_1.flatten)(tools);
         let systemPrompt = nodeData.inputs?.systemMessagePrompt;
+        systemPrompt = (0, utils_1.transformBracesWithColon)(systemPrompt);
         let humanPrompt = nodeData.inputs?.humanMessagePrompt;
+        humanPrompt = (0, utils_1.transformBracesWithColon)(humanPrompt);
         const llmNodeLabel = nodeData.inputs?.llmNodeName;
         const sequentialNodes = nodeData.inputs?.sequentialNode;
         const model = nodeData.inputs?.model;

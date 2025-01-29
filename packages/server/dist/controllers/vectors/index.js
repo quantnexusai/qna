@@ -7,7 +7,7 @@ const vectors_1 = __importDefault(require("../../services/vectors"));
 const rateLimit_1 = require("../../utils/rateLimit");
 const getRateLimiterMiddleware = async (req, res, next) => {
     try {
-        return (0, rateLimit_1.getRateLimiter)(req, res, next);
+        return rateLimit_1.RateLimiterManager.getInstance().getRateLimiter()(req, res, next);
     }
     catch (error) {
         next(error);

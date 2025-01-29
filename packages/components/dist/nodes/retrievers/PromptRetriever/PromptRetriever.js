@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const src_1 = require("../../../src");
 const Interface_1 = require("../../../src/Interface");
 class PromptRetriever_Retrievers {
     constructor() {
@@ -38,7 +39,8 @@ class PromptRetriever_Retrievers {
     async init(nodeData) {
         const name = nodeData.inputs?.name;
         const description = nodeData.inputs?.description;
-        const systemMessage = nodeData.inputs?.systemMessage;
+        let systemMessage = nodeData.inputs?.systemMessage;
+        systemMessage = (0, src_1.transformBracesWithColon)(systemMessage);
         const obj = {
             name,
             description,

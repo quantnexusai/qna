@@ -12,6 +12,7 @@ const http_status_codes_1 = require("http-status-codes");
 const getRunningExpressApp_1 = require("../../utils/getRunningExpressApp");
 const uuid_1 = require("uuid");
 const utils_1 = require("../../errors/utils");
+const Interface_1 = require("../../Interface");
 // Send input message and get prediction result (External)
 const createPrediction = async (req, res, next) => {
     try {
@@ -65,6 +66,9 @@ const createPrediction = async (req, res, next) => {
                     res.setHeader('Connection', 'keep-alive');
                     res.setHeader('X-Accel-Buffering', 'no'); //nginx config: https://serverfault.com/a/801629
                     res.flushHeaders();
+                    if (process.env.MODE === Interface_1.MODE.QUEUE) {
+                        (0, getRunningExpressApp_1.getRunningExpressApp)().redisSubscriber.subscribe(chatId);
+                    }
                     const apiResponse = await predictions_1.default.buildChatflow(req);
                     sseStreamer.streamMetadataEvent(apiResponse.chatId, apiResponse);
                 }
@@ -97,7 +101,7 @@ const createPrediction = async (req, res, next) => {
 };
 const getRateLimiterMiddleware = async (req, res, next) => {
     try {
-        return (0, rateLimit_1.getRateLimiter)(req, res, next);
+        return rateLimit_1.RateLimiterManager.getInstance().getRateLimiter()(req, res, next);
     }
     catch (error) {
         next(error);

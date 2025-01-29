@@ -7,7 +7,7 @@ const indexing_1 = require("../../../src/indexing");
 const VectorStoreUtils_1 = require("../VectorStoreUtils");
 const vectorstores_1 = require("@langchain/core/vectorstores");
 const TypeORM_1 = require("./driver/TypeORM");
-const PGVector_1 = require("./driver/PGVector");
+// import { PGVectorDriver } from './driver/PGVector'
 const utils_2 = require("./utils");
 const serverCredentialsExists = !!process.env.POSTGRES_VECTORSTORE_USER && !!process.env.POSTGRES_VECTORSTORE_PASSWORD;
 class Postgres_VectorStores {
@@ -142,7 +142,7 @@ class Postgres_VectorStores {
                 additionalParams: true,
                 optional: true
             },
-            {
+            /*{
                 label: 'Driver',
                 name: 'driver',
                 type: 'options',
@@ -160,7 +160,7 @@ class Postgres_VectorStores {
                 ],
                 optional: true,
                 additionalParams: true
-            },
+            },*/
             {
                 label: 'Distance Strategy',
                 name: 'distanceStrategy',
@@ -276,14 +276,15 @@ class Postgres_VectorStores {
         return vectorStore;
     }
     static getDriverFromConfig(nodeData, options) {
-        switch (nodeData.inputs?.driver) {
+        /*switch (nodeData.inputs?.driver) {
             case 'typeorm':
-                return new TypeORM_1.TypeORMDriver(nodeData, options);
+                return new TypeORMDriver(nodeData, options)
             case 'pgvector':
-                return new PGVector_1.PGVectorDriver(nodeData, options);
+                return new PGVectorDriver(nodeData, options)
             default:
-                return new TypeORM_1.TypeORMDriver(nodeData, options);
-        }
+                return new TypeORMDriver(nodeData, options)
+        }*/
+        return new TypeORM_1.TypeORMDriver(nodeData, options);
     }
 }
 module.exports = { nodeClass: Postgres_VectorStores };

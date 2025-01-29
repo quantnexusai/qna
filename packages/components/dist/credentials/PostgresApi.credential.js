@@ -5,8 +5,6 @@ class PostgresApi {
         this.label = 'Postgres API';
         this.name = 'PostgresApi';
         this.version = 1.0;
-        this.description =
-            'Refer to <a target="_blank" href="https://hevodata.com/learn/postgresql-rest-api/">official guide</a> on how to get an API key for Postgres';
         this.inputs = [
             {
                 label: 'User',

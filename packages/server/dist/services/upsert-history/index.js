@@ -9,25 +9,22 @@ const utils_1 = require("../../errors/utils");
 const getAllUpsertHistory = async (sortOrder, chatflowid, startDate, endDate) => {
     try {
         const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
-        const setDateToStartOrEndOfDay = (dateTimeStr, setHours) => {
-            const date = new Date(dateTimeStr);
-            if (isNaN(date.getTime())) {
-                return undefined;
+        let createdDateQuery;
+        if (startDate || endDate) {
+            if (startDate && endDate) {
+                createdDateQuery = (0, typeorm_1.Between)(new Date(startDate), new Date(endDate));
             }
-            setHours === 'start' ? date.setHours(0, 0, 0, 0) : date.setHours(23, 59, 59, 999);
-            return date;
-        };
-        let fromDate;
-        if (startDate)
-            fromDate = setDateToStartOrEndOfDay(startDate, 'start');
-        let toDate;
-        if (endDate)
-            toDate = setDateToStartOrEndOfDay(endDate, 'end');
+            else if (startDate) {
+                createdDateQuery = (0, typeorm_1.MoreThanOrEqual)(new Date(startDate));
+            }
+            else if (endDate) {
+                createdDateQuery = (0, typeorm_1.LessThanOrEqual)(new Date(endDate));
+            }
+        }
         let upsertHistory = await appServer.AppDataSource.getRepository(UpsertHistory_1.UpsertHistory).find({
             where: {
                 chatflowid,
-                ...(fromDate && { date: (0, typeorm_1.MoreThanOrEqual)(fromDate) }),
-                ...(toDate && { date: (0, typeorm_1.LessThanOrEqual)(toDate) })
+                date: createdDateQuery
             },
             order: {
                 date: sortOrder === 'DESC' ? 'DESC' : 'ASC'

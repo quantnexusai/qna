@@ -8,15 +8,8 @@ const documentstore_1 = __importDefault(require("../../services/documentstore"))
 const DocumentStore_1 = require("../../database/entities/DocumentStore");
 const internalFlowiseError_1 = require("../../errors/internalFlowiseError");
 const Interface_1 = require("../../Interface");
-const rateLimit_1 = require("../../utils/rateLimit");
-const getRateLimiterMiddleware = async (req, res, next) => {
-    try {
-        return (0, rateLimit_1.getRateLimiter)(req, res, next);
-    }
-    catch (error) {
-        next(error);
-    }
-};
+const getRunningExpressApp_1 = require("../../utils/getRunningExpressApp");
+const Interface_Metrics_1 = require("../../Interface.Metrics");
 const createDocumentStore = async (req, res, next) => {
     try {
         if (typeof req.body === 'undefined') {
@@ -77,8 +70,9 @@ const getDocumentStoreFileChunks = async (req, res, next) => {
         if (typeof req.params.fileId === 'undefined' || req.params.fileId === '') {
             throw new internalFlowiseError_1.InternalFlowiseError(http_status_codes_1.StatusCodes.PRECONDITION_FAILED, `Error: documentStoreController.getDocumentStoreFileChunks - fileId not provided!`);
         }
+        const appDataSource = (0, getRunningExpressApp_1.getRunningExpressApp)().AppDataSource;
         const page = req.params.pageNo ? parseInt(req.params.pageNo) : 1;
-        const apiResponse = await documentstore_1.default.getDocumentStoreFileChunks(req.params.storeId, req.params.fileId, page);
+        const apiResponse = await documentstore_1.default.getDocumentStoreFileChunks(appDataSource, req.params.storeId, req.params.fileId, page);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -127,11 +121,12 @@ const editDocumentStoreFileChunk = async (req, res, next) => {
 };
 const saveProcessingLoader = async (req, res, next) => {
     try {
+        const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
         if (typeof req.body === 'undefined') {
             throw new internalFlowiseError_1.InternalFlowiseError(http_status_codes_1.StatusCodes.PRECONDITION_FAILED, `Error: documentStoreController.saveProcessingLoader - body not provided!`);
         }
         const body = req.body;
-        const apiResponse = await documentstore_1.default.saveProcessingLoader(body);
+        const apiResponse = await documentstore_1.default.saveProcessingLoader(appServer.AppDataSource, body);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -148,7 +143,7 @@ const processLoader = async (req, res, next) => {
         }
         const docLoaderId = req.params.loaderId;
         const body = req.body;
-        const apiResponse = await documentstore_1.default.processLoader(body, docLoaderId);
+        const apiResponse = await documentstore_1.default.processLoaderMiddleware(body, docLoaderId);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -196,7 +191,7 @@ const previewFileChunks = async (req, res, next) => {
         }
         const body = req.body;
         body.preview = true;
-        const apiResponse = await documentstore_1.default.previewChunks(body);
+        const apiResponse = await documentstore_1.default.previewChunksMiddleware(body);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -218,10 +213,16 @@ const insertIntoVectorStore = async (req, res, next) => {
             throw new Error('Error: documentStoreController.insertIntoVectorStore - body not provided!');
         }
         const body = req.body;
-        const apiResponse = await documentstore_1.default.insertIntoVectorStore(body);
+        const apiResponse = await documentstore_1.default.insertIntoVectorStoreMiddleware(body);
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.SUCCESS
+        });
         return res.json(Interface_1.DocumentStoreDTO.fromEntity(apiResponse));
     }
     catch (error) {
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.FAILURE
+        });
         next(error);
     }
 };
@@ -256,7 +257,9 @@ const saveVectorStoreConfig = async (req, res, next) => {
             throw new Error('Error: documentStoreController.saveVectorStoreConfig - body not provided!');
         }
         const body = req.body;
-        const apiResponse = await documentstore_1.default.saveVectorStoreConfig(body);
+        const appDataSource = (0, getRunningExpressApp_1.getRunningExpressApp)().AppDataSource;
+        const componentNodes = (0, getRunningExpressApp_1.getRunningExpressApp)().nodesPool.componentNodes;
+        const apiResponse = await documentstore_1.default.saveVectorStoreConfig(appDataSource, componentNodes, body);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -314,9 +317,15 @@ const upsertDocStoreMiddleware = async (req, res, next) => {
         const body = req.body;
         const files = req.files || [];
         const apiResponse = await documentstore_1.default.upsertDocStoreMiddleware(req.params.id, body, files);
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.SUCCESS
+        });
         return res.json(apiResponse);
     }
     catch (error) {
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.FAILURE
+        });
         next(error);
     }
 };
@@ -327,9 +336,15 @@ const refreshDocStoreMiddleware = async (req, res, next) => {
         }
         const body = req.body;
         const apiResponse = await documentstore_1.default.refreshDocStoreMiddleware(req.params.id, body);
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.SUCCESS
+        });
         return res.json(apiResponse);
     }
     catch (error) {
+        (0, getRunningExpressApp_1.getRunningExpressApp)().metricsProvider?.incrementCounter(Interface_Metrics_1.FLOWISE_METRIC_COUNTERS.VECTORSTORE_UPSERT, {
+            status: Interface_Metrics_1.FLOWISE_COUNTER_STATUS.FAILURE
+        });
         next(error);
     }
 };
@@ -342,6 +357,21 @@ const generateDocStoreToolDesc = async (req, res, next) => {
             throw new Error('Error: documentStoreController.generateDocStoreToolDesc - body not provided!');
         }
         const apiResponse = await documentstore_1.default.generateDocStoreToolDesc(req.params.id, req.body.selectedChatModel);
+        return res.json(apiResponse);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+const getDocStoreConfigs = async (req, res, next) => {
+    try {
+        if (typeof req.params.id === 'undefined' || req.params.id === '') {
+            throw new internalFlowiseError_1.InternalFlowiseError(http_status_codes_1.StatusCodes.PRECONDITION_FAILED, `Error: documentStoreController.getDocStoreConfigs - storeId not provided!`);
+        }
+        if (typeof req.params.loaderId === 'undefined' || req.params.loaderId === '') {
+            throw new internalFlowiseError_1.InternalFlowiseError(http_status_codes_1.StatusCodes.PRECONDITION_FAILED, `Error: documentStoreController.getDocStoreConfigs - doc loader Id not provided!`);
+        }
+        const apiResponse = await documentstore_1.default.findDocStoreAvailableConfigs(req.params.id, req.params.loaderId);
         return res.json(apiResponse);
     }
     catch (error) {
@@ -369,10 +399,10 @@ exports.default = {
     queryVectorStore,
     deleteVectorStoreFromStore,
     updateVectorStoreConfigOnly,
-    getRateLimiterMiddleware,
     upsertDocStoreMiddleware,
     refreshDocStoreMiddleware,
     saveProcessingLoader,
-    generateDocStoreToolDesc
+    generateDocStoreToolDesc,
+    getDocStoreConfigs
 };
 //# sourceMappingURL=index.js.map

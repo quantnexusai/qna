@@ -15,19 +15,28 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.App = void 0;
-exports.getAllChatFlow = getAllChatFlow;
 exports.start = start;
 exports.getInstance = getInstance;
 const express_1 = __importDefault(require("express"));
@@ -35,14 +44,14 @@ const path_1 = __importDefault(require("path"));
 const cors_1 = __importDefault(require("cors"));
 const http_1 = __importDefault(require("http"));
 const express_basic_auth_1 = __importDefault(require("express-basic-auth"));
-const socket_io_1 = require("socket.io");
+const Interface_1 = require("./Interface");
 const utils_1 = require("./utils");
 const logger_1 = __importStar(require("./utils/logger"));
 const DataSource_1 = require("./DataSource");
 const NodesPool_1 = require("./NodesPool");
 const ChatFlow_1 = require("./database/entities/ChatFlow");
-const ChatflowPool_1 = require("./ChatflowPool");
 const CachePool_1 = require("./CachePool");
+const AbortControllerPool_1 = require("./AbortControllerPool");
 const rateLimit_1 = require("./utils/rateLimit");
 const apiKey_1 = require("./utils/apiKey");
 const XSS_1 = require("./utils/XSS");
@@ -53,6 +62,9 @@ const SSEStreamer_1 = require("./utils/SSEStreamer");
 const validateKey_1 = require("./utils/validateKey");
 const Prometheus_1 = require("./metrics/Prometheus");
 const OpenTelemetry_1 = require("./metrics/OpenTelemetry");
+const QueueManager_1 = require("./queue/QueueManager");
+const RedisEventSubscriber_1 = require("./queue/RedisEventSubscriber");
+const constants_1 = require("./utils/constants");
 require("global-agent/bootstrap");
 class App {
     constructor() {
@@ -69,26 +81,41 @@ class App {
             // Initialize nodes pool
             this.nodesPool = new NodesPool_1.NodesPool();
             await this.nodesPool.initialize();
-            // Initialize chatflow pool
-            this.chatflowPool = new ChatflowPool_1.ChatflowPool();
+            // Initialize abort controllers pool
+            this.abortControllerPool = new AbortControllerPool_1.AbortControllerPool();
             // Initialize API keys
             await (0, apiKey_1.getAPIKeys)();
             // Initialize encryption key
             await (0, utils_1.getEncryptionKey)();
             // Initialize Rate Limit
-            const AllChatFlow = await getAllChatFlow();
-            await (0, rateLimit_1.initializeRateLimiter)(AllChatFlow);
+            this.rateLimiterManager = rateLimit_1.RateLimiterManager.getInstance();
+            await this.rateLimiterManager.initializeRateLimiters(await (0, DataSource_1.getDataSource)().getRepository(ChatFlow_1.ChatFlow).find());
             // Initialize cache pool
             this.cachePool = new CachePool_1.CachePool();
             // Initialize telemetry
             this.telemetry = new telemetry_1.Telemetry();
+            // Initialize SSE Streamer
+            this.sseStreamer = new SSEStreamer_1.SSEStreamer();
+            // Init Queues
+            if (process.env.MODE === Interface_1.MODE.QUEUE) {
+                this.queueManager = QueueManager_1.QueueManager.getInstance();
+                this.queueManager.setupAllQueues({
+                    componentNodes: this.nodesPool.componentNodes,
+                    telemetry: this.telemetry,
+                    cachePool: this.cachePool,
+                    appDataSource: this.AppDataSource,
+                    abortControllerPool: this.abortControllerPool
+                });
+                this.redisSubscriber = new RedisEventSubscriber_1.RedisEventSubscriber(this.sseStreamer);
+                await this.redisSubscriber.connect();
+            }
             logger_1.default.info('📦 [server]: Data Source has been initialized!');
         }
         catch (error) {
             logger_1.default.error('❌ [server]: Error during Data Source initialization:', error);
         }
     }
-    async config(socketIO) {
+    async config() {
         // Limit is needed to allow sending/receiving base64 encoded string
         const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb';
         this.app.use(express_1.default.json({ limit: flowise_file_size_limit }));
@@ -115,32 +142,7 @@ class App {
         this.app.use(logger_1.expressRequestLogger);
         // Add the sanitizeMiddleware to guard against XSS
         this.app.use(XSS_1.sanitizeMiddleware);
-        // Make io accessible to our router on req.io
-        this.app.use((req, res, next) => {
-            req.io = socketIO;
-            next();
-        });
-        const whitelistURLs = [
-            '/api/v1/verify/apikey/',
-            '/api/v1/chatflows/apikey/',
-            '/api/v1/public-chatflows',
-            '/api/v1/public-chatbotConfig',
-            '/api/v1/prediction/',
-            '/api/v1/vector/upsert/',
-            '/api/v1/node-icon/',
-            '/api/v1/components-credentials-icon/',
-            '/api/v1/chatflows-streaming',
-            '/api/v1/chatflows-uploads',
-            '/api/v1/openai-assistants-file/download',
-            '/api/v1/feedback',
-            '/api/v1/leads',
-            '/api/v1/get-upload-file',
-            '/api/v1/ip',
-            '/api/v1/ping',
-            '/api/v1/version',
-            '/api/v1/attachments',
-            '/api/v1/metrics'
-        ];
+        const whitelistURLs = constants_1.WHITELIST_URLS;
         const URL_CASE_INSENSITIVE_REGEX = /\/api\/v1\//i;
         const URL_CASE_SENSITIVE_REGEX = /\/api\/v1\//;
         if (process.env.FLOWISE_USERNAME && process.env.FLOWISE_PASSWORD) {
@@ -233,7 +235,6 @@ class App {
             }
         }
         this.app.use('/api/v1', routes_1.default);
-        this.sseStreamer = new SSEStreamer_1.SSEStreamer(this.app);
         // ----------------------------------------
         // Configure number of proxies in Host Environment
         // ----------------------------------------
@@ -243,6 +244,9 @@ class App {
                 msg: 'Check returned IP address in the response. If it matches your current IP address ( which you can get by going to http://ip.nfriedly.com/ or https://api.ipify.org/ ), then the number of proxies is correct and the rate limiter should now work correctly. If not, increase the number of proxies by 1 and restart Cloud-Hosted Flowise until the IP address matches your own. Visit https://docs.flowiseai.com/configuration/rate-limit#cloud-hosted-rate-limit-setup-guide for more information.'
             });
         });
+        if (process.env.MODE === Interface_1.MODE.QUEUE) {
+            this.app.use('/admin/queues', this.queueManager.getBullBoardRouter());
+        }
         // ----------------------------------------
         // Serve UI static
         // ----------------------------------------
@@ -261,6 +265,9 @@ class App {
         try {
             const removePromises = [];
             removePromises.push(this.telemetry.flush());
+            if (this.queueManager) {
+                removePromises.push(this.redisSubscriber.disconnect());
+            }
             await Promise.all(removePromises);
         }
         catch (e) {
@@ -270,19 +277,13 @@ class App {
 }
 exports.App = App;
 let serverApp;
-async function getAllChatFlow() {
-    return await (0, DataSource_1.getDataSource)().getRepository(ChatFlow_1.ChatFlow).find();
-}
 async function start() {
     serverApp = new App();
     const host = process.env.HOST;
     const port = parseInt(process.env.PORT || '', 10) || 3000;
     const server = http_1.default.createServer(serverApp.app);
-    const io = new socket_io_1.Server(server, {
-        cors: (0, XSS_1.getCorsOptions)()
-    });
     await serverApp.initDatabase();
-    await serverApp.config(io);
+    await serverApp.config();
     server.listen(port, host, () => {
         logger_1.default.info(`⚡️ [server]: Flowise Server is listening at ${host ? 'http://' + host : ''}:${port}`);
     });

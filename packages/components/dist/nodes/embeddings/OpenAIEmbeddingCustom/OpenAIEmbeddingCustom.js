@@ -6,7 +6,7 @@ class OpenAIEmbeddingCustom_Embeddings {
     constructor() {
         this.label = 'OpenAI Embeddings Custom';
         this.name = 'openAIEmbeddingsCustom';
-        this.version = 2.0;
+        this.version = 3.0;
         this.type = 'OpenAIEmbeddingsCustom';
         this.icon = 'openai.svg';
         this.category = 'Embeddings';
@@ -48,6 +48,13 @@ class OpenAIEmbeddingCustom_Embeddings {
                 additionalParams: true
             },
             {
+                label: 'BaseOptions',
+                name: 'baseOptions',
+                type: 'json',
+                optional: true,
+                additionalParams: true
+            },
+            {
                 label: 'Model Name',
                 name: 'modelName',
                 type: 'string',
@@ -69,6 +76,7 @@ class OpenAIEmbeddingCustom_Embeddings {
         const basePath = nodeData.inputs?.basepath;
         const modelName = nodeData.inputs?.modelName;
         const dimensions = nodeData.inputs?.dimensions;
+        const baseOptions = nodeData.inputs?.baseOptions;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const openAIApiKey = (0, utils_1.getCredentialParam)('openAIApiKey', credentialData, nodeData);
         const obj = {
@@ -84,7 +92,16 @@ class OpenAIEmbeddingCustom_Embeddings {
             obj.modelName = modelName;
         if (dimensions)
             obj.dimensions = parseInt(dimensions, 10);
-        const model = new openai_1.OpenAIEmbeddings(obj, { basePath });
+        let parsedBaseOptions = undefined;
+        if (baseOptions) {
+            try {
+                parsedBaseOptions = typeof baseOptions === 'object' ? baseOptions : JSON.parse(baseOptions);
+            }
+            catch (exception) {
+                throw new Error("Invalid JSON in the ChatOpenAI's BaseOptions: " + exception);
+            }
+        }
+        const model = new openai_1.OpenAIEmbeddings(obj, { baseURL: basePath, defaultHeaders: parsedBaseOptions });
         return model;
     }
 }

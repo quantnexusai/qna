@@ -33,7 +33,7 @@ class Elasticsearch_VectorStores {
                     delete d.metadata.loc;
                 });
                 // end of workaround
-                const elasticSearchClientArgs = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
+                const { elasticClient, elasticSearchClientArgs } = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
                 const vectorStore = new elasticsearch_2.ElasticVectorSearch(embeddings, elasticSearchClientArgs);
                 try {
                     if (recordManager) {
@@ -49,10 +49,12 @@ class Elasticsearch_VectorStores {
                                 vectorStoreName: indexName
                             }
                         });
+                        await elasticClient.close();
                         return res;
                     }
                     else {
                         await vectorStore.addDocuments(finalDocs);
+                        await elasticClient.close();
                         return { numAdded: finalDocs.length, addedDocs: finalDocs };
                     }
                 }
@@ -68,7 +70,7 @@ class Elasticsearch_VectorStores {
                 const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
                 const endPoint = (0, utils_1.getCredentialParam)('endpoint', credentialData, nodeData);
                 const cloudId = (0, utils_1.getCredentialParam)('cloudId', credentialData, nodeData);
-                const elasticSearchClientArgs = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
+                const { elasticClient, elasticSearchClientArgs } = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
                 const vectorStore = new elasticsearch_2.ElasticVectorSearch(embeddings, elasticSearchClientArgs);
                 try {
                     if (recordManager) {
@@ -78,9 +80,11 @@ class Elasticsearch_VectorStores {
                         const keys = await recordManager.listKeys({});
                         await vectorStore.delete({ ids: keys });
                         await recordManager.deleteKeys(keys);
+                        await elasticClient.close();
                     }
                     else {
                         await vectorStore.delete({ ids });
+                        await elasticClient.close();
                     }
                 }
                 catch (e) {
@@ -185,8 +189,14 @@ class Elasticsearch_VectorStores {
         const similarityMeasure = nodeData.inputs?.similarityMeasure;
         const k = topK ? parseFloat(topK) : 4;
         const output = nodeData.outputs?.output;
-        const elasticSearchClientArgs = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
+        const { elasticClient, elasticSearchClientArgs } = prepareClientArgs(endPoint, cloudId, credentialData, nodeData, similarityMeasure, indexName);
         const vectorStore = await elasticsearch_2.ElasticVectorSearch.fromExistingIndex(embeddings, elasticSearchClientArgs);
+        const originalSimilaritySearchVectorWithScore = vectorStore.similaritySearchVectorWithScore;
+        vectorStore.similaritySearchVectorWithScore = async (query, k, filter) => {
+            const results = await originalSimilaritySearchVectorWithScore.call(vectorStore, query, k, filter);
+            await elasticClient.close();
+            return results;
+        };
         if (output === 'retriever') {
             return vectorStore.asRetriever(k);
         }
@@ -257,12 +267,16 @@ const prepareClientArgs = (endPoint, cloudId, credentialData, nodeData, similari
                 similarity: 'l2_norm'
             };
     }
+    const elasticClient = new elasticsearch_1.Client(elasticSearchClientOptions);
     const elasticSearchClientArgs = {
-        client: new elasticsearch_1.Client(elasticSearchClientOptions),
+        client: elasticClient,
         indexName: indexName,
         vectorSearchOptions: vectorSearchOptions
     };
-    return elasticSearchClientArgs;
+    return {
+        elasticClient,
+        elasticSearchClientArgs
+    };
 };
 module.exports = { nodeClass: Elasticsearch_VectorStores };
 //# sourceMappingURL=Elasticsearch.js.map

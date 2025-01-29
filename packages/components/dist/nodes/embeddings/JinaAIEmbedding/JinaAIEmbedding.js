@@ -32,11 +32,10 @@ class JinaAIEmbedding_Embeddings {
         const modelName = nodeData.inputs?.modelName;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const apiKey = (0, utils_1.getCredentialParam)('jinaAIAPIKey', credentialData, nodeData);
-        const obj = {
+        const model = new jina_1.JinaEmbeddings({
             apiKey: apiKey,
             model: modelName
-        };
-        const model = new jina_1.JinaEmbeddings(obj);
+        });
         return model;
     }
 }

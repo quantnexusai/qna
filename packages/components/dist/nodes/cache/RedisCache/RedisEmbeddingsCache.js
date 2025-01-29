@@ -1,45 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createDocumentStoreFromByteStore = createDocumentStoreFromByteStore;
 const ioredis_1 = require("ioredis");
-const lodash_1 = require("lodash");
 const ioredis_2 = require("@langchain/community/storage/ioredis");
-const cache_backed_1 = require("langchain/embeddings/cache_backed");
+const embeddings_1 = require("@langchain/core/embeddings");
 const src_1 = require("../../../src");
-let redisClientSingleton;
-let redisClientOption;
-let redisClientUrl;
-const getRedisClientbyOption = (option) => {
-    if (!redisClientSingleton) {
-        // if client doesn't exists
-        redisClientSingleton = new ioredis_1.Redis(option);
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    else if (redisClientSingleton && !(0, lodash_1.isEqual)(option, redisClientOption)) {
-        // if client exists but option changed
-        redisClientSingleton.quit();
-        redisClientSingleton = new ioredis_1.Redis(option);
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    return redisClientSingleton;
-};
-const getRedisClientbyUrl = (url) => {
-    if (!redisClientSingleton) {
-        // if client doesn't exists
-        redisClientSingleton = new ioredis_1.Redis(url);
-        redisClientUrl = url;
-        return redisClientSingleton;
-    }
-    else if (redisClientSingleton && url !== redisClientUrl) {
-        // if client exists but option changed
-        redisClientSingleton.quit();
-        redisClientSingleton = new ioredis_1.Redis(url);
-        redisClientUrl = url;
-        return redisClientSingleton;
-    }
-    return redisClientSingleton;
-};
+const stores_1 = require("@langchain/core/stores");
+const hash_1 = require("@langchain/core/utils/hash");
+const documents_1 = require("@langchain/core/documents");
 class RedisEmbeddingsCache {
     constructor() {
         this.label = 'Redis Embeddings Cache';
@@ -49,7 +17,7 @@ class RedisEmbeddingsCache {
         this.description = 'Cache generated Embeddings in Redis to avoid needing to recompute them.';
         this.icon = 'redis.svg';
         this.category = 'Cache';
-        this.baseClasses = [this.type, ...(0, src_1.getBaseClasses)(cache_backed_1.CacheBackedEmbeddings)];
+        this.baseClasses = [this.type, ...(0, src_1.getBaseClasses)(CacheBackedEmbeddings)];
         this.credential = {
             label: 'Connect Credential',
             name: 'credential',
@@ -95,7 +63,7 @@ class RedisEmbeddingsCache {
             const host = (0, src_1.getCredentialParam)('redisCacheHost', credentialData, nodeData);
             const sslEnabled = (0, src_1.getCredentialParam)('redisCacheSslEnabled', credentialData, nodeData);
             const tlsOptions = sslEnabled === true ? { tls: { rejectUnauthorized: false } } : {};
-            client = getRedisClientbyOption({
+            client = new ioredis_1.Redis({
                 port: portStr ? parseInt(portStr) : 6379,
                 host,
                 username,
@@ -104,7 +72,7 @@ class RedisEmbeddingsCache {
             });
         }
         else {
-            client = getRedisClientbyUrl(redisUrl);
+            client = new ioredis_1.Redis(redisUrl);
         }
         ttl ?? (ttl = '3600');
         let ttlNumber = parseInt(ttl, 10);
@@ -112,10 +80,105 @@ class RedisEmbeddingsCache {
             client: client,
             ttl: ttlNumber
         });
-        return cache_backed_1.CacheBackedEmbeddings.fromBytesStore(underlyingEmbeddings, redisStore, {
-            namespace: namespace
+        const store = CacheBackedEmbeddings.fromBytesStore(underlyingEmbeddings, redisStore, {
+            namespace: namespace,
+            redisClient: client
+        });
+        return store;
+    }
+}
+class CacheBackedEmbeddings extends embeddings_1.Embeddings {
+    constructor(fields) {
+        super(fields);
+        this.underlyingEmbeddings = fields.underlyingEmbeddings;
+        this.documentEmbeddingStore = fields.documentEmbeddingStore;
+        this.redisClient = fields.redisClient;
+    }
+    async embedQuery(document) {
+        const res = this.underlyingEmbeddings.embedQuery(document);
+        this.redisClient?.quit();
+        return res;
+    }
+    async embedDocuments(documents) {
+        const vectors = await this.documentEmbeddingStore.mget(documents);
+        const missingIndicies = [];
+        const missingDocuments = [];
+        for (let i = 0; i < vectors.length; i += 1) {
+            if (vectors[i] === undefined) {
+                missingIndicies.push(i);
+                missingDocuments.push(documents[i]);
+            }
+        }
+        if (missingDocuments.length) {
+            const missingVectors = await this.underlyingEmbeddings.embedDocuments(missingDocuments);
+            const keyValuePairs = missingDocuments.map((document, i) => [document, missingVectors[i]]);
+            await this.documentEmbeddingStore.mset(keyValuePairs);
+            for (let i = 0; i < missingIndicies.length; i += 1) {
+                vectors[missingIndicies[i]] = missingVectors[i];
+            }
+        }
+        this.redisClient?.quit();
+        return vectors;
+    }
+    static fromBytesStore(underlyingEmbeddings, documentEmbeddingStore, options) {
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        const encoderBackedStore = new EncoderBackedStore({
+            store: documentEmbeddingStore,
+            keyEncoder: (key) => (options?.namespace ?? '') + (0, hash_1.insecureHash)(key),
+            valueSerializer: (value) => encoder.encode(JSON.stringify(value)),
+            valueDeserializer: (serializedValue) => JSON.parse(decoder.decode(serializedValue))
+        });
+        return new this({
+            underlyingEmbeddings,
+            documentEmbeddingStore: encoderBackedStore,
+            redisClient: options?.redisClient
         });
     }
+}
+class EncoderBackedStore extends stores_1.BaseStore {
+    constructor(fields) {
+        super(fields);
+        this.lc_namespace = ['langchain', 'storage'];
+        this.store = fields.store;
+        this.keyEncoder = fields.keyEncoder;
+        this.valueSerializer = fields.valueSerializer;
+        this.valueDeserializer = fields.valueDeserializer;
+    }
+    async mget(keys) {
+        const encodedKeys = keys.map(this.keyEncoder);
+        const values = await this.store.mget(encodedKeys);
+        return values.map((value) => {
+            if (value === undefined) {
+                return undefined;
+            }
+            return this.valueDeserializer(value);
+        });
+    }
+    async mset(keyValuePairs) {
+        const encodedPairs = keyValuePairs.map(([key, value]) => [
+            this.keyEncoder(key),
+            this.valueSerializer(value)
+        ]);
+        return this.store.mset(encodedPairs);
+    }
+    async mdelete(keys) {
+        const encodedKeys = keys.map(this.keyEncoder);
+        return this.store.mdelete(encodedKeys);
+    }
+    async *yieldKeys(prefix) {
+        yield* this.store.yieldKeys(prefix);
+    }
+}
+function createDocumentStoreFromByteStore(store) {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    return new EncoderBackedStore({
+        store,
+        keyEncoder: (key) => key,
+        valueSerializer: (doc) => encoder.encode(JSON.stringify({ pageContent: doc.pageContent, metadata: doc.metadata })),
+        valueDeserializer: (bytes) => new documents_1.Document(JSON.parse(decoder.decode(bytes)))
+    });
 }
 module.exports = { nodeClass: RedisEmbeddingsCache };
 //# sourceMappingURL=RedisEmbeddingsCache.js.map

@@ -138,7 +138,7 @@ class ChatflowTool_Tools {
         if (useQuestionFromChat) {
             toolInput = input;
         }
-        else if (!customInput) {
+        else if (customInput) {
             toolInput = customInput;
         }
         let name = _name || 'chatflow_tool';

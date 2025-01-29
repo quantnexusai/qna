@@ -6,27 +6,8 @@ const ChatMessage_1 = require("../database/entities/ChatMessage");
 const ChatMessageFeedback_1 = require("../database/entities/ChatMessageFeedback");
 const getRunningExpressApp_1 = require("../utils/getRunningExpressApp");
 const _1 = require(".");
-/**
- * Method that get chat messages.
- * @param {string} chatflowid
- * @param {ChatType} chatType
- * @param {string} sortOrder
- * @param {string} chatId
- * @param {string} memoryType
- * @param {string} sessionId
- * @param {string} startDate
- * @param {string} endDate
- * @param {boolean} feedback
- * @param {ChatMessageRatingType[]} feedbackTypes
- */
-const utilGetChatMessage = async (chatflowid, chatType, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes) => {
+const utilGetChatMessage = async ({ chatflowid, chatTypes, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes }) => {
     const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
-    let fromDate;
-    if (startDate)
-        fromDate = (0, _1.setDateToStartOrEndOfDay)(startDate, 'start');
-    let toDate;
-    if (endDate)
-        toDate = (0, _1.setDateToStartOrEndOfDay)(endDate, 'end');
     if (feedback) {
         const query = await appServer.AppDataSource.getRepository(ChatMessage_1.ChatMessage).createQueryBuilder('chat_message');
         // do the join with chat message feedback based on messageId for each chat message in the chatflow
@@ -34,8 +15,8 @@ const utilGetChatMessage = async (chatflowid, chatType, sortOrder = 'ASC', chatI
             .leftJoinAndMapOne('chat_message.feedback', ChatMessageFeedback_1.ChatMessageFeedback, 'feedback', 'feedback.messageId = chat_message.id')
             .where('chat_message.chatflowid = :chatflowid', { chatflowid });
         // based on which parameters are available add `andWhere` clauses to the query
-        if (chatType) {
-            query.andWhere('chat_message.chatType = :chatType', { chatType });
+        if (chatTypes && chatTypes.length > 0) {
+            query.andWhere('chat_message.chatType IN (:...chatTypes)', { chatTypes });
         }
         if (chatId) {
             query.andWhere('chat_message.chatId = :chatId', { chatId });
@@ -47,10 +28,12 @@ const utilGetChatMessage = async (chatflowid, chatType, sortOrder = 'ASC', chatI
             query.andWhere('chat_message.sessionId = :sessionId', { sessionId });
         }
         // set date range
-        query.andWhere('chat_message.createdDate BETWEEN :fromDate AND :toDate', {
-            fromDate: fromDate ?? (0, _1.aMonthAgo)(),
-            toDate: toDate ?? new Date()
-        });
+        if (startDate) {
+            query.andWhere('chat_message.createdDate >= :startDateTime', { startDateTime: startDate ? new Date(startDate) : (0, _1.aMonthAgo)() });
+        }
+        if (endDate) {
+            query.andWhere('chat_message.createdDate <= :endDateTime', { endDateTime: endDate ? new Date(endDate) : new Date() });
+        }
         // sort
         query.orderBy('chat_message.createdDate', sortOrder === 'DESC' ? 'DESC' : 'ASC');
         const messages = (await query.getMany());
@@ -69,15 +52,26 @@ const utilGetChatMessage = async (chatflowid, chatType, sortOrder = 'ASC', chatI
         }
         return messages;
     }
+    let createdDateQuery;
+    if (startDate || endDate) {
+        if (startDate && endDate) {
+            createdDateQuery = (0, typeorm_1.Between)(new Date(startDate), new Date(endDate));
+        }
+        else if (startDate) {
+            createdDateQuery = (0, typeorm_1.MoreThanOrEqual)(new Date(startDate));
+        }
+        else if (endDate) {
+            createdDateQuery = (0, typeorm_1.LessThanOrEqual)(new Date(endDate));
+        }
+    }
     return await appServer.AppDataSource.getRepository(ChatMessage_1.ChatMessage).find({
         where: {
             chatflowid,
-            chatType,
+            chatType: chatTypes?.length ? (0, typeorm_1.In)(chatTypes) : undefined,
             chatId,
             memoryType: memoryType ?? undefined,
             sessionId: sessionId ?? undefined,
-            ...(fromDate && { createdDate: (0, typeorm_1.MoreThanOrEqual)(fromDate) }),
-            ...(toDate && { createdDate: (0, typeorm_1.LessThanOrEqual)(toDate) }),
+            createdDate: createdDateQuery,
             id: messageId ?? undefined
         },
         order: {

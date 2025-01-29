@@ -49,7 +49,7 @@ class PromptLangfuse_Prompts {
             sdkIntegration: 'Flowise'
         });
         const langfusePrompt = await langfuse.getPrompt(nodeData.inputs?.template);
-        const template = langfusePrompt.getLangchainPrompt();
+        let template = langfusePrompt.getLangchainPrompt();
         const promptValuesStr = nodeData.inputs?.promptValues;
         let promptValues = {};
         if (promptValuesStr) {
@@ -61,6 +61,7 @@ class PromptLangfuse_Prompts {
             }
         }
         const inputVariables = (0, utils_1.getInputVariables)(template);
+        template = (0, utils_1.transformBracesWithColon)(template);
         try {
             const options = {
                 template,

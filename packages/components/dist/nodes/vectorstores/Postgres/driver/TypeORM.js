@@ -45,7 +45,9 @@ class TypeORMDriver extends Base_1.VectorStoreDriver {
         };
     }
     async instanciate(metadataFilters) {
-        return this.adaptInstance(await typeorm_1.TypeORMVectorStore.fromDataSource(this.getEmbeddings(), await this.getArgs()), metadataFilters);
+        // @ts-ignore
+        const instance = new typeorm_1.TypeORMVectorStore(this.getEmbeddings(), await this.getArgs());
+        return this.adaptInstance(instance, metadataFilters);
     }
     async fromDocuments(documents) {
         return this.adaptInstance(await typeorm_1.TypeORMVectorStore.fromDocuments(documents, this.getEmbeddings(), await this.getArgs()));
@@ -66,22 +68,32 @@ class TypeORMDriver extends Base_1.VectorStoreDriver {
             [ERROR]: uncaughtException:  Illegal invocation TypeError: Illegal invocation at Socket.ref (node:net:1524:18) at Connection.ref (.../node_modules/pg/lib/connection.js:183:17) at Client.ref (.../node_modules/pg/lib/client.js:591:21) at BoundPool._pulseQueue (/node_modules/pg-pool/index.js:148:28) at .../node_modules/pg-pool/index.js:184:37 at process.processTicksAndRejections (node:internal/process/task_queues:77:11)
         */
         instance.similaritySearchVectorWithScore = async (query, k, filter) => {
-            return await _a.similaritySearchVectorWithScore(query, k, tableName, await this.getPostgresConnectionOptions(), filter ?? metadataFilters, this.computedOperatorString);
+            await instance.appDataSource.initialize();
+            const res = await _a.similaritySearchVectorWithScore(query, k, tableName, await this.getPostgresConnectionOptions(), filter ?? metadataFilters, this.computedOperatorString);
+            await instance.appDataSource.destroy();
+            return res;
         };
         instance.delete = async (params) => {
             const { ids } = params;
             if (ids?.length) {
                 try {
+                    await instance.appDataSource.initialize();
                     instance.appDataSource.getRepository(instance.documentEntity).delete(ids);
                 }
                 catch (e) {
                     console.error('Failed to delete');
                 }
+                finally {
+                    await instance.appDataSource.destroy();
+                }
             }
         };
         const baseAddVectorsFn = instance.addVectors.bind(instance);
         instance.addVectors = async (vectors, documents) => {
-            return baseAddVectorsFn(vectors, this.sanitizeDocuments(documents));
+            await instance.appDataSource.initialize();
+            const res = baseAddVectorsFn(vectors, this.sanitizeDocuments(documents));
+            await instance.appDataSource.destroy();
+            return res;
         };
         return instance;
     }

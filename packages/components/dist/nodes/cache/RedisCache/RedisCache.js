@@ -4,46 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const ioredis_1 = require("ioredis");
-const lodash_1 = require("lodash");
 const object_hash_1 = __importDefault(require("object-hash"));
 const ioredis_2 = require("@langchain/community/caches/ioredis");
 const messages_1 = require("@langchain/core/messages");
 const src_1 = require("../../../src");
-let redisClientSingleton;
-let redisClientOption;
-let redisClientUrl;
-const getRedisClientbyOption = (option) => {
-    if (!redisClientSingleton) {
-        // if client doesn't exists
-        redisClientSingleton = new ioredis_1.Redis(option);
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    else if (redisClientSingleton && !(0, lodash_1.isEqual)(option, redisClientOption)) {
-        // if client exists but option changed
-        redisClientSingleton.quit();
-        redisClientSingleton = new ioredis_1.Redis(option);
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    return redisClientSingleton;
-};
-const getRedisClientbyUrl = (url) => {
-    if (!redisClientSingleton) {
-        // if client doesn't exists
-        redisClientSingleton = new ioredis_1.Redis(url);
-        redisClientUrl = url;
-        return redisClientSingleton;
-    }
-    else if (redisClientSingleton && url !== redisClientUrl) {
-        // if client exists but option changed
-        redisClientSingleton.quit();
-        redisClientSingleton = new ioredis_1.Redis(url);
-        redisClientUrl = url;
-        return redisClientSingleton;
-    }
-    return redisClientSingleton;
-};
 class RedisCache {
     constructor() {
         this.label = 'Redis Cache';
@@ -74,29 +38,18 @@ class RedisCache {
     }
     async init(nodeData, _, options) {
         const ttl = nodeData.inputs?.ttl;
-        const credentialData = await (0, src_1.getCredentialData)(nodeData.credential ?? '', options);
-        const redisUrl = (0, src_1.getCredentialParam)('redisUrl', credentialData, nodeData);
-        let client;
-        if (!redisUrl || redisUrl === '') {
-            const username = (0, src_1.getCredentialParam)('redisCacheUser', credentialData, nodeData);
-            const password = (0, src_1.getCredentialParam)('redisCachePwd', credentialData, nodeData);
-            const portStr = (0, src_1.getCredentialParam)('redisCachePort', credentialData, nodeData);
-            const host = (0, src_1.getCredentialParam)('redisCacheHost', credentialData, nodeData);
-            const sslEnabled = (0, src_1.getCredentialParam)('redisCacheSslEnabled', credentialData, nodeData);
-            const tlsOptions = sslEnabled === true ? { tls: { rejectUnauthorized: false } } : {};
-            client = getRedisClientbyOption({
-                port: portStr ? parseInt(portStr) : 6379,
-                host,
-                username,
-                password,
-                ...tlsOptions
-            });
-        }
-        else {
-            client = getRedisClientbyUrl(redisUrl);
-        }
+        let client = await getRedisClient(nodeData, options);
         const redisClient = new ioredis_2.RedisCache(client);
         redisClient.lookup = async (prompt, llmKey) => {
+            try {
+                const pingResp = await client.ping();
+                if (pingResp !== 'PONG') {
+                    client = await getRedisClient(nodeData, options);
+                }
+            }
+            catch (error) {
+                client = await getRedisClient(nodeData, options);
+            }
             let idx = 0;
             let key = getCacheKey(prompt, llmKey, String(idx));
             let value = await client.get(key);
@@ -108,9 +61,19 @@ class RedisCache {
                 key = getCacheKey(prompt, llmKey, String(idx));
                 value = await client.get(key);
             }
+            client.quit();
             return generations.length > 0 ? generations : null;
         };
         redisClient.update = async (prompt, llmKey, value) => {
+            try {
+                const pingResp = await client.ping();
+                if (pingResp !== 'PONG') {
+                    client = await getRedisClient(nodeData, options);
+                }
+            }
+            catch (error) {
+                client = await getRedisClient(nodeData, options);
+            }
             for (let i = 0; i < value.length; i += 1) {
                 const key = getCacheKey(prompt, llmKey, String(i));
                 if (ttl) {
@@ -120,10 +83,36 @@ class RedisCache {
                     await client.set(key, JSON.stringify(serializeGeneration(value[i])));
                 }
             }
+            client.quit();
         };
+        client.quit();
         return redisClient;
     }
 }
+const getRedisClient = async (nodeData, options) => {
+    let client;
+    const credentialData = await (0, src_1.getCredentialData)(nodeData.credential ?? '', options);
+    const redisUrl = (0, src_1.getCredentialParam)('redisUrl', credentialData, nodeData);
+    if (!redisUrl || redisUrl === '') {
+        const username = (0, src_1.getCredentialParam)('redisCacheUser', credentialData, nodeData);
+        const password = (0, src_1.getCredentialParam)('redisCachePwd', credentialData, nodeData);
+        const portStr = (0, src_1.getCredentialParam)('redisCachePort', credentialData, nodeData);
+        const host = (0, src_1.getCredentialParam)('redisCacheHost', credentialData, nodeData);
+        const sslEnabled = (0, src_1.getCredentialParam)('redisCacheSslEnabled', credentialData, nodeData);
+        const tlsOptions = sslEnabled === true ? { tls: { rejectUnauthorized: false } } : {};
+        client = new ioredis_1.Redis({
+            port: portStr ? parseInt(portStr) : 6379,
+            host,
+            username,
+            password,
+            ...tlsOptions
+        });
+    }
+    else {
+        client = new ioredis_1.Redis(redisUrl);
+    }
+    return client;
+};
 const getCacheKey = (...strings) => (0, object_hash_1.default)(strings.join('_'));
 const deserializeStoredGeneration = (storedGeneration) => {
     if (storedGeneration.message !== undefined) {

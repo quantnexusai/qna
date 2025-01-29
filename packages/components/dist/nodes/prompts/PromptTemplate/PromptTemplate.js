@@ -31,7 +31,7 @@ class PromptTemplate_Prompts {
         ];
     }
     async init(nodeData) {
-        const template = nodeData.inputs?.template;
+        let template = nodeData.inputs?.template;
         const promptValuesStr = nodeData.inputs?.promptValues;
         let promptValues = {};
         if (promptValuesStr) {
@@ -43,6 +43,7 @@ class PromptTemplate_Prompts {
             }
         }
         const inputVariables = (0, utils_1.getInputVariables)(template);
+        template = (0, utils_1.transformBracesWithColon)(template);
         try {
             const options = {
                 template,

@@ -5,9 +5,17 @@ const getChatMessage_1 = require("../../utils/getChatMessage");
 const internalFlowiseError_1 = require("../../errors/internalFlowiseError");
 const utils_1 = require("../../errors/utils");
 // get stats for showing in chatflow
-const getChatflowStats = async (chatflowid, chatTypeFilter, startDate, endDate, messageId, feedback, feedbackTypes) => {
+const getChatflowStats = async (chatflowid, chatTypes, startDate, endDate, messageId, feedback, feedbackTypes) => {
     try {
-        const chatmessages = (await (0, getChatMessage_1.utilGetChatMessage)(chatflowid, chatTypeFilter, undefined, undefined, undefined, undefined, startDate, endDate, messageId, feedback, feedbackTypes));
+        const chatmessages = (await (0, getChatMessage_1.utilGetChatMessage)({
+            chatflowid,
+            chatTypes,
+            startDate,
+            endDate,
+            messageId,
+            feedback,
+            feedbackTypes
+        }));
         const totalMessages = chatmessages.length;
         const totalFeedback = chatmessages.filter((message) => message?.feedback).length;
         const positiveFeedback = chatmessages.filter((message) => message?.feedback?.rating === 'THUMBS_UP').length;

@@ -96,6 +96,7 @@ const generateFollowUpPrompts = async (followUpPromptsConfig, apiMessageContent,
                     model: providerConfig.modelName,
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 });
+                // @ts-ignore
                 const structuredLLM = model.withStructuredOutput(FollowUpPromptType);
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt);
                 return structuredResponse;

@@ -96,10 +96,9 @@ class ConversationalAgent_Agents {
             }
             catch (e) {
                 await new Promise((resolve) => setTimeout(resolve, 500));
-                // if (options.shouldStreamResponse) {
-                //     streamResponse(options.sseStreamer, options.chatId, e.message)
-                // }
-                //streamResponse(options.socketIO && options.socketIOClientId, e.message, options.socketIO, options.socketIOClientId)
+                if (options.shouldStreamResponse) {
+                    (0, Moderation_1.streamResponse)(sseStreamer, chatId, e.message);
+                }
                 return (0, OutputParserHelpers_1.formatResponse)(e.message);
             }
         }
@@ -176,7 +175,7 @@ const prepareAgent = async (nodeData, options, flowObj) => {
     let tools = nodeData.inputs?.tools;
     tools = (0, lodash_1.flatten)(tools);
     const memory = nodeData.inputs?.memory;
-    const systemMessage = nodeData.inputs?.systemMessage;
+    let systemMessage = nodeData.inputs?.systemMessage;
     const memoryKey = memory.memoryKey ? memory.memoryKey : 'chat_history';
     const inputKey = memory.inputKey ? memory.inputKey : 'input';
     const prependMessages = options?.prependMessages;
@@ -184,6 +183,7 @@ const prepareAgent = async (nodeData, options, flowObj) => {
         llm: model,
         toolNames: tools.map((tool) => tool.name)
     });
+    systemMessage = (0, utils_1.transformBracesWithColon)(systemMessage);
     const prompt = agents_1.ChatConversationalAgent.createPrompt(tools, {
         systemMessage: systemMessage ? systemMessage : DEFAULT_PREFIX,
         outputParser

@@ -1,4 +1,6 @@
 import { Request } from 'express';
+import { IExecuteFlowParams } from '../Interface';
+export declare const executeUpsert: ({ componentNodes, incomingInput, chatflow, chatId, appDataSource, telemetry, cachePool, isInternal, files }: IExecuteFlowParams) => Promise<any>;
 /**
  * Upsert documents
  * @param {Request} req

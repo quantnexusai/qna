@@ -1,0 +1,1 @@
+import{P as e,j as r,c2 as p}from"./index-ChaGAcYI.js";import{C as a}from"./CircularProgress-Cz104Ocn.js";const c=({open:o})=>r.jsx("div",{children:r.jsx(p,{sx:{color:"#fff",zIndex:s=>s.zIndex.drawer+1},open:o,children:r.jsx(a,{color:"inherit"})})});c.propTypes={open:e.bool};export{c as B};

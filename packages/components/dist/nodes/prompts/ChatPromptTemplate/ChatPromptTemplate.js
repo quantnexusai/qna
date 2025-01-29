@@ -86,13 +86,15 @@ class ChatPromptTemplate_Prompts {
         ];
     }
     async init(nodeData, _, options) {
-        const systemMessagePrompt = nodeData.inputs?.systemMessagePrompt;
-        const humanMessagePrompt = nodeData.inputs?.humanMessagePrompt;
+        let systemMessagePrompt = nodeData.inputs?.systemMessagePrompt;
+        let humanMessagePrompt = nodeData.inputs?.humanMessagePrompt;
         const promptValuesStr = nodeData.inputs?.promptValues;
         const tabIdentifier = nodeData.inputs?.[`${TAB_IDENTIFIER}_${nodeData.id}`];
         const selectedTab = tabIdentifier ? tabIdentifier.split(`_${nodeData.id}`)[0] : 'messageHistoryCode';
         const messageHistoryCode = nodeData.inputs?.messageHistoryCode;
         const messageHistory = nodeData.inputs?.messageHistory;
+        systemMessagePrompt = (0, utils_1.transformBracesWithColon)(systemMessagePrompt);
+        humanMessagePrompt = (0, utils_1.transformBracesWithColon)(humanMessagePrompt);
         let prompt = prompts_1.ChatPromptTemplate.fromMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate(systemMessagePrompt),
             prompts_1.HumanMessagePromptTemplate.fromTemplate(humanMessagePrompt)

@@ -15,18 +15,28 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveFlowObjValue = exports.extractOutputFromArray = exports.removeInvalidImageMarkdown = exports.mapMimeTypeToExt = exports.mapMimeTypeToInputField = exports.mapExtToInputField = exports.getVersion = exports.prepareSandboxVars = exports.getVars = exports.convertMultiOptionsToStringArray = exports.convertBaseMessagetoIMessage = exports.flattenObject = exports.convertSchemaToZod = exports.serializeChatHistory = exports.convertChatHistoryToText = exports.mapChatMessageToBaseMessage = exports.getUserHome = exports.getCredentialParam = exports.defaultChain = exports.getCredentialData = exports.getEncryptionKeyPath = exports.getEnvironmentVariable = exports.getAvailableURLs = exports.getInputVariables = exports.getNodeModulesPackagePath = exports.getBaseClasses = exports.defaultAllowBuiltInDep = exports.availableDependencies = exports.FLOWISE_CHATID = exports.notEmptyRegex = exports.numberOrExpressionRegex = void 0;
+exports.handleDocumentLoaderDocuments = exports.handleDocumentLoaderMetadata = exports.parseDocumentLoaderMetadata = exports.handleDocumentLoaderOutput = exports.resolveFlowObjValue = exports.extractOutputFromArray = exports.removeInvalidImageMarkdown = exports.mapMimeTypeToExt = exports.mapMimeTypeToInputField = exports.mapExtToInputField = exports.getVersion = exports.prepareSandboxVars = exports.getVars = exports.convertMultiOptionsToStringArray = exports.convertBaseMessagetoIMessage = exports.flattenObject = exports.convertSchemaToZod = exports.serializeChatHistory = exports.convertChatHistoryToText = exports.mapChatMessageToBaseMessage = exports.getUserHome = exports.getCredentialParam = exports.defaultChain = exports.getCredentialData = exports.getEncryptionKeyPath = exports.getEnvironmentVariable = exports.getAvailableURLs = exports.transformBracesWithColon = exports.getInputVariables = exports.getNodeModulesPackagePath = exports.getBaseClasses = exports.defaultAllowBuiltInDep = exports.availableDependencies = exports.FLOWISE_CHATID = exports.notEmptyRegex = exports.numberOrExpressionRegex = void 0;
 exports.serializeQueryParams = serializeQueryParams;
 exports.handleErrorMessage = handleErrorMessage;
 exports.webCrawl = webCrawl;
@@ -40,12 +50,29 @@ const path = __importStar(require("path"));
 const jsdom_1 = require("jsdom");
 const zod_1 = require("zod");
 const crypto_js_1 = require("crypto-js");
+const lodash_1 = require("lodash");
 const messages_1 = require("@langchain/core/messages");
 const storageUtils_1 = require("./storageUtils");
+const client_secrets_manager_1 = require("@aws-sdk/client-secrets-manager");
 const commonUtils_1 = require("../nodes/sequentialagents/commonUtils");
 exports.numberOrExpressionRegex = '^(\\d+\\.?\\d*|{{.*}})$'; //return true if string consists only numbers OR expression {{}}
 exports.notEmptyRegex = '(.|\\s)*\\S(.|\\s)*'; //return true if string is not empty or blank
 exports.FLOWISE_CHATID = 'flowise_chatId';
+let secretsManagerClient = null;
+const USE_AWS_SECRETS_MANAGER = process.env.SECRETKEY_STORAGE_TYPE === 'aws';
+if (USE_AWS_SECRETS_MANAGER) {
+    const region = process.env.SECRETKEY_AWS_REGION || 'us-east-1'; // Default region if not provided
+    const accessKeyId = process.env.SECRETKEY_AWS_ACCESS_KEY;
+    const secretAccessKey = process.env.SECRETKEY_AWS_SECRET_KEY;
+    let credentials;
+    if (accessKeyId && secretAccessKey) {
+        credentials = {
+            accessKeyId,
+            secretAccessKey
+        };
+    }
+    secretsManagerClient = new client_secrets_manager_1.SecretsManagerClient({ credentials, region });
+}
 /*
  * List of dependencies allowed to be import in @flowiseai/nodevm
  */
@@ -279,7 +306,8 @@ const getInputVariables = (paramValue) => {
             const variableStartIdx = variableStack[variableStack.length - 1].startIdx;
             const variableEndIdx = startIdx;
             const variableFullPath = returnVal.substring(variableStartIdx, variableEndIdx);
-            inputVariables.push(variableFullPath);
+            if (!variableFullPath.includes(':'))
+                inputVariables.push(variableFullPath);
             variableStack.pop();
         }
         startIdx += 1;
@@ -287,6 +315,30 @@ const getInputVariables = (paramValue) => {
     return inputVariables;
 };
 exports.getInputVariables = getInputVariables;
+/**
+ * Transform curly braces into double curly braces if the content includes a colon.
+ * @param input - The original string that may contain { ... } segments.
+ * @returns The transformed string, where { ... } containing a colon has been replaced with {{ ... }}.
+ */
+const transformBracesWithColon = (input) => {
+    // This regex will match anything of the form `{ ... }` (no nested braces).
+    // `[^{}]*` means: match any characters that are not `{` or `}` zero or more times.
+    const regex = /\{([^{}]*?)\}/g;
+    return input.replace(regex, (match, groupContent) => {
+        // groupContent is the text inside the braces `{ ... }`.
+        if (groupContent.includes(':')) {
+            // If there's a colon in the content, we turn { ... } into {{ ... }}
+            // The match is the full string like: "{ answer: hello }"
+            // groupContent is the inner part like: " answer: hello "
+            return `{{${groupContent}}}`;
+        }
+        else {
+            // Otherwise, leave it as is
+            return match;
+        }
+    });
+};
+exports.transformBracesWithColon = transformBracesWithColon;
 /**
  * Crawl all available urls given a domain url and limit
  * @param {string} url
@@ -527,10 +579,34 @@ const getEncryptionKey = async () => {
  * @returns {Promise<ICommonObject>}
  */
 const decryptCredentialData = async (encryptedData) => {
-    const encryptKey = await getEncryptionKey();
-    const decryptedData = crypto_js_1.AES.decrypt(encryptedData, encryptKey);
+    let decryptedDataStr;
+    if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
+        try {
+            const command = new client_secrets_manager_1.GetSecretValueCommand({ SecretId: encryptedData });
+            const response = await secretsManagerClient.send(command);
+            if (response.SecretString) {
+                const secretObj = JSON.parse(response.SecretString);
+                decryptedDataStr = JSON.stringify(secretObj);
+            }
+            else {
+                throw new Error('Failed to retrieve secret value.');
+            }
+        }
+        catch (error) {
+            console.error(error);
+            throw new Error('Credentials could not be decrypted.');
+        }
+    }
+    else {
+        // Fallback to existing code
+        const encryptKey = await getEncryptionKey();
+        const decryptedData = crypto_js_1.AES.decrypt(encryptedData, encryptKey);
+        decryptedDataStr = decryptedData.toString(crypto_js_1.enc.Utf8);
+    }
+    if (!decryptedDataStr)
+        return {};
     try {
-        return JSON.parse(decryptedData.toString(crypto_js_1.enc.Utf8));
+        return JSON.parse(decryptedDataStr);
     }
     catch (e) {
         console.error(e);
@@ -1070,4 +1146,57 @@ const resolveFlowObjValue = (obj, sourceObj) => {
     }
 };
 exports.resolveFlowObjValue = resolveFlowObjValue;
+const handleDocumentLoaderOutput = (docs, output) => {
+    if (output === 'document') {
+        return docs;
+    }
+    else {
+        let finaltext = '';
+        for (const doc of docs) {
+            finaltext += `${doc.pageContent}\n`;
+        }
+        return handleEscapeCharacters(finaltext, false);
+    }
+};
+exports.handleDocumentLoaderOutput = handleDocumentLoaderOutput;
+const parseDocumentLoaderMetadata = (metadata) => {
+    if (!metadata)
+        return {};
+    if (typeof metadata !== 'object') {
+        return JSON.parse(metadata);
+    }
+    return metadata;
+};
+exports.parseDocumentLoaderMetadata = parseDocumentLoaderMetadata;
+const handleDocumentLoaderMetadata = (docs, _omitMetadataKeys, metadata = {}, sourceIdKey) => {
+    let omitMetadataKeys = [];
+    if (_omitMetadataKeys) {
+        omitMetadataKeys = _omitMetadataKeys.split(',').map((key) => key.trim());
+    }
+    metadata = (0, exports.parseDocumentLoaderMetadata)(metadata);
+    return docs.map((doc) => ({
+        ...doc,
+        metadata: _omitMetadataKeys === '*'
+            ? metadata
+            : (0, lodash_1.omit)({
+                ...metadata,
+                ...doc.metadata,
+                ...(sourceIdKey ? { [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey } : undefined)
+            }, omitMetadataKeys)
+    }));
+};
+exports.handleDocumentLoaderMetadata = handleDocumentLoaderMetadata;
+const handleDocumentLoaderDocuments = async (loader, textSplitter) => {
+    let docs = [];
+    if (textSplitter) {
+        let splittedDocs = await loader.load();
+        splittedDocs = await textSplitter.splitDocuments(splittedDocs);
+        docs = splittedDocs;
+    }
+    else {
+        docs = await loader.load();
+    }
+    return docs;
+};
+exports.handleDocumentLoaderDocuments = handleDocumentLoaderDocuments;
 //# sourceMappingURL=utils.js.map

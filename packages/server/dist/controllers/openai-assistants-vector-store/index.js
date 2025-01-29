@@ -99,7 +99,7 @@ const uploadFilesToAssistantVectorStore = async (req, res, next) => {
                 // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
                 file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
                 uploadFiles.push({
-                    filePath: file.path,
+                    filePath: file.path ?? file.key,
                     fileName: file.originalname
                 });
             }

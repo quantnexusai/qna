@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getS3Config = exports.streamStorageFile = exports.removeFolderFromStorage = exports.removeSpecificFileFromStorage = exports.removeFilesFromStorage = exports.getStorageType = exports.getStoragePath = exports.getFileFromStorage = exports.addSingleFileToStorage = exports.addArrayFilesToStorage = exports.addBase64FilesToStorage = void 0;
+exports.getS3Config = exports.streamStorageFile = exports.removeFolderFromStorage = exports.removeSpecificFileFromStorage = exports.removeSpecificFileFromUpload = exports.removeFilesFromStorage = exports.getStorageType = exports.getStoragePath = exports.getFileFromStorage = exports.getFileFromUpload = exports.addSingleFileToStorage = exports.addArrayFilesToStorage = exports.addBase64FilesToStorage = void 0;
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const client_s3_1 = require("@aws-sdk/client-s3");
@@ -109,6 +109,36 @@ const addSingleFileToStorage = async (mime, bf, fileName, ...paths) => {
     }
 };
 exports.addSingleFileToStorage = addSingleFileToStorage;
+const getFileFromUpload = async (filePath) => {
+    const storageType = (0, exports.getStorageType)();
+    if (storageType === 's3') {
+        const { s3Client, Bucket } = (0, exports.getS3Config)();
+        let Key = filePath;
+        // remove the first '/' if it exists
+        if (Key.startsWith('/')) {
+            Key = Key.substring(1);
+        }
+        const getParams = {
+            Bucket,
+            Key
+        };
+        const response = await s3Client.send(new client_s3_1.GetObjectCommand(getParams));
+        const body = response.Body;
+        if (body instanceof node_stream_1.Readable) {
+            const streamToString = await body.transformToString('base64');
+            if (streamToString) {
+                return Buffer.from(streamToString, 'base64');
+            }
+        }
+        // @ts-ignore
+        const buffer = Buffer.concat(response.Body.toArray());
+        return buffer;
+    }
+    else {
+        return fs_1.default.readFileSync(filePath);
+    }
+};
+exports.getFileFromUpload = getFileFromUpload;
 const getFileFromStorage = async (file, ...paths) => {
     const storageType = (0, exports.getStorageType)();
     const sanitizedFilename = _sanitizeFilename(file);
@@ -170,6 +200,21 @@ const removeFilesFromStorage = async (...paths) => {
     }
 };
 exports.removeFilesFromStorage = removeFilesFromStorage;
+const removeSpecificFileFromUpload = async (filePath) => {
+    const storageType = (0, exports.getStorageType)();
+    if (storageType === 's3') {
+        let Key = filePath;
+        // remove the first '/' if it exists
+        if (Key.startsWith('/')) {
+            Key = Key.substring(1);
+        }
+        await _deleteS3Folder(Key);
+    }
+    else {
+        fs_1.default.unlinkSync(filePath);
+    }
+};
+exports.removeSpecificFileFromUpload = removeSpecificFileFromUpload;
 const removeSpecificFileFromStorage = async (...paths) => {
     const storageType = (0, exports.getStorageType)();
     if (storageType === 's3') {

@@ -1,5 +1,35 @@
 import { NextFunction, Request, Response } from 'express';
 import { IChatFlow } from '../Interface';
-export declare function getRateLimiter(req: Request, res: Response, next: NextFunction): void;
-export declare function updateRateLimiter(chatFlow: IChatFlow): Promise<void>;
-export declare function initializeRateLimiter(chatFlowPool: IChatFlow[]): Promise<void>;
+export declare class RateLimiterManager {
+    private rateLimiters;
+    private rateLimiterMutex;
+    private redisClient;
+    private static instance;
+    private queueEventsProducer;
+    private queueEvents;
+    constructor();
+    getConnection(): {
+        url: string | undefined;
+        host: string;
+        port: number;
+        username: string | undefined;
+        password: string | undefined;
+        tls: {
+            rejectUnauthorized: boolean;
+            cert?: undefined;
+            key?: undefined;
+            ca?: undefined;
+        } | {
+            cert: Buffer<ArrayBuffer> | undefined;
+            key: Buffer<ArrayBuffer> | undefined;
+            ca: Buffer<ArrayBuffer> | undefined;
+            rejectUnauthorized?: undefined;
+        } | undefined;
+    };
+    static getInstance(): RateLimiterManager;
+    addRateLimiter(id: string, duration: number, limit: number, message: string): Promise<void>;
+    removeRateLimiter(id: string): void;
+    getRateLimiter(): (req: Request, res: Response, next: NextFunction) => void;
+    updateRateLimiter(chatFlow: IChatFlow, isInitialized?: boolean): Promise<void>;
+    initializeRateLimiters(chatflows: IChatFlow[]): Promise<void>;
+}

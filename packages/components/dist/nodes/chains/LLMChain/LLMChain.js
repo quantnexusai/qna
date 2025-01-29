@@ -213,7 +213,7 @@ const runPrediction = async (inputVariables, chain, input, promptValuesRaw, opti
         let seen = [];
         for (const variable of inputVariables) {
             seen.push(variable);
-            if (promptValues[variable]) {
+            if (promptValues[variable] != null) {
                 seen.pop();
             }
         }

@@ -15,15 +15,24 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-const lodash_1 = require("lodash");
 const utils_1 = require("../../../src/utils");
 const client_s3_1 = require("@aws-sdk/client-s3");
 const modelLoader_1 = require("../../../src/modelLoader");
@@ -33,10 +42,10 @@ const path = __importStar(require("node:path"));
 const os = __importStar(require("node:os"));
 const directory_1 = require("langchain/document_loaders/fs/directory");
 const json_1 = require("langchain/document_loaders/fs/json");
-const csv_1 = require("@langchain/community/document_loaders/fs/csv");
 const pdf_1 = require("@langchain/community/document_loaders/fs/pdf");
 const docx_1 = require("@langchain/community/document_loaders/fs/docx");
 const text_1 = require("langchain/document_loaders/fs/text");
+const CsvLoader_1 = require("../Csv/CsvLoader");
 class S3_DocumentLoaders {
     constructor() {
         this.loadMethods = {
@@ -155,10 +164,6 @@ class S3_DocumentLoaders {
         const metadata = nodeData.inputs?.metadata;
         const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys;
         const output = nodeData.outputs?.output;
-        let omitMetadataKeys = [];
-        if (_omitMetadataKeys) {
-            omitMetadataKeys = _omitMetadataKeys.split(',').map((key) => key.trim());
-        }
         let credentials;
         if (nodeData.credential) {
             const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential, options);
@@ -221,13 +226,13 @@ class S3_DocumentLoaders {
             const loader = new directory_1.DirectoryLoader(tempDir, {
                 '.json': (path) => new json_1.JSONLoader(path),
                 '.txt': (path) => new text_1.TextLoader(path),
-                '.csv': (path) => new csv_1.CSVLoader(path),
+                '.csv': (path) => new CsvLoader_1.CSVLoader(path),
                 '.docx': (path) => new docx_1.DocxLoader(path),
-                '.pdf': (path) => pdfUsage === 'perFile'
-                    ? // @ts-ignore
-                        new pdf_1.PDFLoader(path, { splitPages: false, pdfjs: () => Promise.resolve().then(() => __importStar(require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js'))) })
-                    : // @ts-ignore
-                        new pdf_1.PDFLoader(path, { pdfjs: () => Promise.resolve().then(() => __importStar(require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js'))) }),
+                '.pdf': (path) => new pdf_1.PDFLoader(path, {
+                    splitPages: pdfUsage !== 'perFile',
+                    // @ts-ignore
+                    pdfjs: () => Promise.resolve().then(() => __importStar(require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js')))
+                }),
                 '.aspx': (path) => new text_1.TextLoader(path),
                 '.asp': (path) => new text_1.TextLoader(path),
                 '.cpp': (path) => new text_1.TextLoader(path), // C++
@@ -263,55 +268,16 @@ class S3_DocumentLoaders {
                 '.vb': (path) => new text_1.TextLoader(path), // Visual Basic
                 '.xml': (path) => new text_1.TextLoader(path) // XML
             }, true);
-            let docs = [];
-            if (textSplitter) {
-                let splittedDocs = await loader.load();
-                splittedDocs = await textSplitter.splitDocuments(splittedDocs);
-                docs.push(...splittedDocs);
-            }
-            else {
-                docs = await loader.load();
-            }
-            if (metadata) {
-                const parsedMetadata = typeof metadata === 'object' ? metadata : JSON.parse(metadata);
-                docs = docs.map((doc) => ({
-                    ...doc,
-                    metadata: _omitMetadataKeys === '*'
-                        ? {
-                            ...parsedMetadata
-                        }
-                        : (0, lodash_1.omit)({
-                            ...doc.metadata,
-                            ...parsedMetadata
-                        }, omitMetadataKeys)
-                }));
-            }
-            else {
-                docs = docs.map((doc) => ({
-                    ...doc,
-                    metadata: _omitMetadataKeys === '*'
-                        ? {}
-                        : (0, lodash_1.omit)({
-                            ...doc.metadata
-                        }, omitMetadataKeys)
-                }));
-            }
-            // remove the temp directory before returning docs
-            fsDefault.rmSync(tempDir, { recursive: true });
-            if (output === 'document') {
-                return docs;
-            }
-            else {
-                let finaltext = '';
-                for (const doc of docs) {
-                    finaltext += `${doc.pageContent}\n`;
-                }
-                return (0, utils_1.handleEscapeCharacters)(finaltext, false);
-            }
+            let docs = await (0, utils_1.handleDocumentLoaderDocuments)(loader, textSplitter);
+            docs = (0, utils_1.handleDocumentLoaderMetadata)(docs, _omitMetadataKeys, metadata);
+            return (0, utils_1.handleDocumentLoaderOutput)(docs, output);
         }
         catch (e) {
-            fsDefault.rmSync(tempDir, { recursive: true });
             throw new Error(`Failed to load data from bucket ${bucketName}: ${e.message}`);
+        }
+        finally {
+            // remove the temp directory before returning docs
+            fsDefault.rmSync(tempDir, { recursive: true });
         }
     }
 }

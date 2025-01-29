@@ -6,26 +6,6 @@ const redis_2 = require("@langchain/community/vectorstores/redis");
 const documents_1 = require("@langchain/core/documents");
 const utils_1 = require("../../../src/utils");
 const utils_2 = require("./utils");
-let redisClientSingleton;
-let redisClientOption;
-const getRedisClient = async (option) => {
-    if (!redisClientSingleton) {
-        // if client doesn't exists
-        redisClientSingleton = (0, redis_1.createClient)(option);
-        await redisClientSingleton.connect();
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    else if (redisClientSingleton && !(0, lodash_1.isEqual)(option, redisClientOption)) {
-        // if client exists but option changed
-        redisClientSingleton.quit();
-        redisClientSingleton = (0, redis_1.createClient)(option);
-        await redisClientSingleton.connect();
-        redisClientOption = option;
-        return redisClientSingleton;
-    }
-    return redisClientSingleton;
-};
 class Redis_VectorStores {
     constructor() {
         //@ts-ignore
@@ -52,12 +32,12 @@ class Redis_VectorStores {
                 for (let i = 0; i < flattenDocs.length; i += 1) {
                     if (flattenDocs[i] && flattenDocs[i].pageContent) {
                         const document = new documents_1.Document(flattenDocs[i]);
-                        (0, utils_2.escapeAllStrings)(document.metadata);
                         finalDocs.push(document);
                     }
                 }
                 try {
-                    const redisClient = await getRedisClient({ url: redisUrl });
+                    const redisClient = (0, redis_1.createClient)({ url: redisUrl });
+                    await redisClient.connect();
                     const storeConfig = {
                         redisClient: redisClient,
                         indexName: indexName
@@ -81,6 +61,7 @@ class Redis_VectorStores {
                     vectorStore.similaritySearchVectorWithScore = async (query, k, filter) => {
                         return await similaritySearchVectorWithScore(query, k, indexName, metadataKey, vectorKey, contentKey, redisClient, filter);
                     };
+                    await redisClient.quit();
                     return { numAdded: finalDocs.length, addedDocs: finalDocs };
                 }
                 catch (e) {
@@ -197,7 +178,7 @@ class Redis_VectorStores {
             const host = (0, utils_1.getCredentialParam)('redisCacheHost', credentialData, nodeData);
             redisUrl = 'redis://' + username + ':' + password + '@' + host + ':' + portStr;
         }
-        const redisClient = await getRedisClient({ url: redisUrl });
+        const redisClient = (0, redis_1.createClient)({ url: redisUrl });
         const storeConfig = {
             redisClient: redisClient,
             indexName: indexName
@@ -211,7 +192,10 @@ class Redis_VectorStores {
             vectorKey = 'content_vector';
         // Avoid Illegal invocation error
         vectorStore.similaritySearchVectorWithScore = async (query, k, filter) => {
-            return await similaritySearchVectorWithScore(query, k, indexName, metadataKey, vectorKey, contentKey, redisClient, filter);
+            await redisClient.connect();
+            const results = await similaritySearchVectorWithScore(query, k, indexName, metadataKey, vectorKey, contentKey, redisClient, filter);
+            await redisClient.quit();
+            return results;
         };
         if (output === 'retriever') {
             return vectorStore.asRetriever(k);

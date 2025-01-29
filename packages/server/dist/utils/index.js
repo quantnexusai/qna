@@ -18,18 +18,28 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUploadPath = exports.getAPIOverrideConfig = exports.aMonthAgo = exports.setDateToStartOrEndOfDay = exports.convertToValidFilename = exports.getAppVersion = exports.getUserSettingsFilePath = exports.getTelemetryFlowObj = exports.getAllValuesFromJson = exports.findMemoryNode = exports.getSessionChatHistory = exports.getMemorySessionId = exports.redactCredentialWithPasswordType = exports.transformToCredentialEntity = exports.decryptCredentialData = exports.encryptCredentialData = exports.getEncryptionKey = exports.generateEncryptKey = exports.isFlowValidForStream = exports.findAvailableConfigs = exports.isSameChatId = exports.isSameOverrideConfig = exports.isStartNodeDependOnInput = exports.replaceInputsWithConfig = exports.resolveVariables = exports.getVariableValue = exports.clearSessionMemory = exports.buildFlow = exports.saveUpsertFlowData = exports.getFileName = exports.getEndingNodes = exports.getAllConnectedNodes = exports.getStartingNodes = exports.constructGraphs = exports.getNodeModulesPackagePath = exports.getUserHome = exports.databaseEntities = void 0;
+exports.getMulterStorage = exports.getUploadPath = exports.getAPIOverrideConfig = exports.aMonthAgo = exports.convertToValidFilename = exports.getAppVersion = exports.getUserSettingsFilePath = exports.getTelemetryFlowObj = exports.getAllValuesFromJson = exports.findMemoryNode = exports.getSessionChatHistory = exports.getMemorySessionId = exports.redactCredentialWithPasswordType = exports.transformToCredentialEntity = exports.generateEncryptKey = exports.decryptCredentialData = exports.encryptCredentialData = exports.getEncryptionKey = exports.isFlowValidForStream = exports.findAvailableConfigs = exports.isSameChatId = exports.isSameOverrideConfig = exports.isStartNodeDependOnInput = exports.replaceInputsWithConfig = exports.resolveVariables = exports.getVariableValue = exports.clearSessionMemory = exports.buildFlow = exports.saveUpsertFlowData = exports.getFileName = exports.getEndingNodes = exports.getAllConnectedNodes = exports.getStartingNodes = exports.constructGraphs = exports.getNodeModulesPackagePath = exports.getUserHome = exports.databaseEntities = void 0;
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const logger_1 = __importDefault(require("./logger"));
@@ -37,6 +47,8 @@ const lodash_1 = require("lodash");
 const flowise_components_1 = require("flowise-components");
 const crypto_1 = require("crypto");
 const crypto_js_1 = require("crypto-js");
+const multer_1 = __importDefault(require("multer"));
+const multer_s3_1 = __importDefault(require("multer-s3"));
 const ChatFlow_1 = require("../database/entities/ChatFlow");
 const ChatMessage_1 = require("../database/entities/ChatMessage");
 const Credential_1 = require("../database/entities/Credential");
@@ -48,10 +60,26 @@ const DocumentStore_1 = require("../database/entities/DocumentStore");
 const DocumentStoreFileChunk_1 = require("../database/entities/DocumentStoreFileChunk");
 const internalFlowiseError_1 = require("../errors/internalFlowiseError");
 const http_status_codes_1 = require("http-status-codes");
+const client_secrets_manager_1 = require("@aws-sdk/client-secrets-manager");
 const QUESTION_VAR_PREFIX = 'question';
 const FILE_ATTACHMENT_PREFIX = 'file_attachment';
 const CHAT_HISTORY_VAR_PREFIX = 'chat_history';
 const REDACTED_CREDENTIAL_VALUE = '_FLOWISE_BLANK_07167752-1a71-43b1-bf8f-4f32252165db';
+let secretsManagerClient = null;
+const USE_AWS_SECRETS_MANAGER = process.env.SECRETKEY_STORAGE_TYPE === 'aws';
+if (USE_AWS_SECRETS_MANAGER) {
+    const region = process.env.SECRETKEY_AWS_REGION || 'us-east-1'; // Default region if not provided
+    const accessKeyId = process.env.SECRETKEY_AWS_ACCESS_KEY;
+    const secretAccessKey = process.env.SECRETKEY_AWS_SECRET_KEY;
+    let credentials;
+    if (accessKeyId && secretAccessKey) {
+        credentials = {
+            accessKeyId,
+            secretAccessKey
+        };
+    }
+    secretsManagerClient = new client_secrets_manager_1.SecretsManagerClient({ credentials, region });
+}
 exports.databaseEntities = {
     ChatFlow: ChatFlow_1.ChatFlow,
     ChatMessage: ChatMessage_1.ChatMessage,
@@ -417,7 +445,7 @@ const buildFlow = async ({ startingNodeIds, reactFlowNodes, reactFlowEdges, grap
             }
             if (isUpsert)
                 upsertHistory['flowData'] = (0, exports.saveUpsertFlowData)(flowNodeData, upsertHistory);
-            const reactFlowNodeData = await (0, exports.resolveVariables)(appDataSource, flowNodeData, flowNodes, question, chatHistory, flowData, uploadedFilesContent, availableVariables, variableOverrides);
+            const reactFlowNodeData = await (0, exports.resolveVariables)(flowNodeData, flowNodes, question, chatHistory, flowData, uploadedFilesContent, availableVariables, variableOverrides);
             if (isUpsert && stopNodeId && nodeId === stopNodeId) {
                 logger_1.default.debug(`[server]: Upserting ${reactFlowNode.data.label} (${reactFlowNode.data.id})`);
                 const indexResult = await newNodeInstance.vectorStoreMethods['upsert'].call(newNodeInstance, reactFlowNodeData, {
@@ -587,7 +615,7 @@ const clearSessionMemory = async (reactFlowNodes, componentNodes, chatId, appDat
     }
 };
 exports.clearSessionMemory = clearSessionMemory;
-const getGlobalVariable = async (appDataSource, overrideConfig, availableVariables = [], variableOverrides) => {
+const getGlobalVariable = async (overrideConfig, availableVariables = [], variableOverrides = []) => {
     // override variables defined in overrideConfig
     // nodeData.inputs.vars is an Object, check each property and override the variable
     if (overrideConfig?.vars && variableOverrides) {
@@ -642,7 +670,7 @@ const getGlobalVariable = async (appDataSource, overrideConfig, availableVariabl
  * @param {boolean} isAcceptVariable
  * @returns {string}
  */
-const getVariableValue = async (appDataSource, paramValue, reactFlowNodes, question, chatHistory, isAcceptVariable = false, flowData, uploadedFilesContent, availableVariables = [], variableOverrides = []) => {
+const getVariableValue = async (paramValue, reactFlowNodes, question, chatHistory, isAcceptVariable = false, flowConfig, uploadedFilesContent, availableVariables = [], variableOverrides = []) => {
     const isObject = typeof paramValue === 'object';
     const initialValue = (isObject ? JSON.stringify(paramValue) : paramValue) ?? '';
     let returnVal = initialValue;
@@ -676,16 +704,16 @@ const getVariableValue = async (appDataSource, paramValue, reactFlowNodes, quest
                 variableDict[`{{${variableFullPath}}}`] = (0, flowise_components_1.handleEscapeCharacters)((0, flowise_components_1.convertChatHistoryToText)(chatHistory), false);
             }
             if (variableFullPath.startsWith('$vars.')) {
-                const vars = await getGlobalVariable(appDataSource, flowData, availableVariables, variableOverrides);
+                const vars = await getGlobalVariable(flowConfig, availableVariables, variableOverrides);
                 const variableValue = (0, lodash_1.get)(vars, variableFullPath.replace('$vars.', ''));
-                if (variableValue) {
+                if (variableValue != null) {
                     variableDict[`{{${variableFullPath}}}`] = variableValue;
                     returnVal = returnVal.split(`{{${variableFullPath}}}`).join(variableValue);
                 }
             }
-            if (variableFullPath.startsWith('$flow.') && flowData) {
-                const variableValue = (0, lodash_1.get)(flowData, variableFullPath.replace('$flow.', ''));
-                if (variableValue) {
+            if (variableFullPath.startsWith('$flow.') && flowConfig) {
+                const variableValue = (0, lodash_1.get)(flowConfig, variableFullPath.replace('$flow.', ''));
+                if (variableValue != null) {
                     variableDict[`{{${variableFullPath}}}`] = variableValue;
                     returnVal = returnVal.split(`{{${variableFullPath}}}`).join(variableValue);
                 }
@@ -774,7 +802,7 @@ exports.getVariableValue = getVariableValue;
  * @param {string} question
  * @returns {INodeData}
  */
-const resolveVariables = async (appDataSource, reactFlowNodeData, reactFlowNodes, question, chatHistory, flowData, uploadedFilesContent, availableVariables = [], variableOverrides = []) => {
+const resolveVariables = async (reactFlowNodeData, reactFlowNodes, question, chatHistory, flowConfig, uploadedFilesContent, availableVariables = [], variableOverrides = []) => {
     let flowNodeData = (0, lodash_1.cloneDeep)(reactFlowNodeData);
     const types = 'inputs';
     const getParamValues = async (paramsObj) => {
@@ -783,14 +811,14 @@ const resolveVariables = async (appDataSource, reactFlowNodeData, reactFlowNodes
             if (Array.isArray(paramValue)) {
                 const resolvedInstances = [];
                 for (const param of paramValue) {
-                    const resolvedInstance = await (0, exports.getVariableValue)(appDataSource, param, reactFlowNodes, question, chatHistory, undefined, flowData, uploadedFilesContent, availableVariables, variableOverrides);
+                    const resolvedInstance = await (0, exports.getVariableValue)(param, reactFlowNodes, question, chatHistory, undefined, flowConfig, uploadedFilesContent, availableVariables, variableOverrides);
                     resolvedInstances.push(resolvedInstance);
                 }
                 paramsObj[key] = resolvedInstances;
             }
             else {
                 const isAcceptVariable = reactFlowNodeData.inputParams.find((param) => param.name === key)?.acceptVariable ?? false;
-                const resolvedInstance = await (0, exports.getVariableValue)(appDataSource, paramValue, reactFlowNodes, question, chatHistory, isAcceptVariable, flowData, uploadedFilesContent, availableVariables, variableOverrides);
+                const resolvedInstance = await (0, exports.getVariableValue)(paramValue, reactFlowNodes, question, chatHistory, isAcceptVariable, flowConfig, uploadedFilesContent, availableVariables, variableOverrides);
                 paramsObj[key] = resolvedInstance;
             }
         }
@@ -822,12 +850,12 @@ const replaceInputsWithConfig = (flowNodeData, overrideConfig, nodeOverrides, va
              * Several conditions:
              * 1. If config is 'analytics', always allow it
              * 2. If config is 'vars', check its object and filter out the variables that are not enabled for override
-             * 3. If typeof config is an object, check if the node id is in the overrideConfig object and if the parameter (systemMessagePrompt) is enabled
+             * 3. If typeof config's value is an object, check if the node id is in the overrideConfig object and if the parameter (systemMessagePrompt) is enabled
              * Example:
              * "systemMessagePrompt": {
              *  "chatPromptTemplate_0": "You are an assistant"
              * }
-             * 4. If typeof config is a string, check if the parameter is enabled
+             * 4. If typeof config's value is a string, check if the parameter is enabled
              * Example:
              * "systemMessagePrompt": "You are an assistant"
              */
@@ -867,8 +895,12 @@ const replaceInputsWithConfig = (flowNodeData, overrideConfig, nodeOverrides, va
                 }
             }
             else {
-                // Only proceed if the parameter is enabled
-                if (!isParameterEnabled(flowNodeData.label, config)) {
+                // Skip if it is an override "files" input, such as pdfFile, txtFile, etc
+                if (typeof overrideConfig[config] === 'string' && overrideConfig[config].includes('FILE-STORAGE::')) {
+                    // pass
+                }
+                else if (!isParameterEnabled(flowNodeData.label, config)) {
+                    // Only proceed if the parameter is enabled
                     continue;
                 }
             }
@@ -1148,14 +1180,6 @@ const isFlowValidForStream = (reactFlowNodes, endingNodeData) => {
 };
 exports.isFlowValidForStream = isFlowValidForStream;
 /**
- * Generate an encryption key
- * @returns {string}
- */
-const generateEncryptKey = () => {
-    return (0, crypto_1.randomBytes)(24).toString('base64');
-};
-exports.generateEncryptKey = generateEncryptKey;
-/**
  * Returns the encryption key
  * @returns {Promise<string>}
  */
@@ -1182,7 +1206,36 @@ exports.getEncryptionKey = getEncryptionKey;
  * @returns {Promise<string>}
  */
 const encryptCredentialData = async (plainDataObj) => {
+    if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
+        const secretName = `FlowiseCredential_${(0, crypto_1.randomBytes)(12).toString('hex')}`;
+        logger_1.default.info(`[server]: Upserting AWS Secret: ${secretName}`);
+        const secretString = JSON.stringify({ ...plainDataObj });
+        try {
+            // Try to update the secret if it exists
+            const putCommand = new client_secrets_manager_1.PutSecretValueCommand({
+                SecretId: secretName,
+                SecretString: secretString
+            });
+            await secretsManagerClient.send(putCommand);
+        }
+        catch (error) {
+            if (error.name === 'ResourceNotFoundException') {
+                // Secret doesn't exist, so create it
+                const createCommand = new client_secrets_manager_1.CreateSecretCommand({
+                    Name: secretName,
+                    SecretString: secretString
+                });
+                await secretsManagerClient.send(createCommand);
+            }
+            else {
+                // Rethrow any other errors
+                throw error;
+            }
+        }
+        return secretName;
+    }
     const encryptKey = await (0, exports.getEncryptionKey)();
+    // Fallback to existing code
     return crypto_js_1.AES.encrypt(JSON.stringify(plainDataObj), encryptKey).toString();
 };
 exports.encryptCredentialData = encryptCredentialData;
@@ -1194,17 +1247,39 @@ exports.encryptCredentialData = encryptCredentialData;
  * @returns {Promise<ICredentialDataDecrypted>}
  */
 const decryptCredentialData = async (encryptedData, componentCredentialName, componentCredentials) => {
-    const encryptKey = await (0, exports.getEncryptionKey)();
-    const decryptedData = crypto_js_1.AES.decrypt(encryptedData, encryptKey);
-    const decryptedDataStr = decryptedData.toString(crypto_js_1.enc.Utf8);
+    let decryptedDataStr;
+    if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
+        try {
+            logger_1.default.info(`[server]: Reading AWS Secret: ${encryptedData}`);
+            const command = new client_secrets_manager_1.GetSecretValueCommand({ SecretId: encryptedData });
+            const response = await secretsManagerClient.send(command);
+            if (response.SecretString) {
+                const secretObj = JSON.parse(response.SecretString);
+                decryptedDataStr = JSON.stringify(secretObj);
+            }
+            else {
+                throw new Error('Failed to retrieve secret value.');
+            }
+        }
+        catch (error) {
+            console.error(error);
+            throw new Error('Failed to decrypt credential data.');
+        }
+    }
+    else {
+        // Fallback to existing code
+        const encryptKey = await (0, exports.getEncryptionKey)();
+        const decryptedData = crypto_js_1.AES.decrypt(encryptedData, encryptKey);
+        decryptedDataStr = decryptedData.toString(crypto_js_1.enc.Utf8);
+    }
     if (!decryptedDataStr)
         return {};
     try {
         if (componentCredentialName && componentCredentials) {
-            const plainDataObj = JSON.parse(decryptedData.toString(crypto_js_1.enc.Utf8));
+            const plainDataObj = JSON.parse(decryptedDataStr);
             return (0, exports.redactCredentialWithPasswordType)(componentCredentialName, plainDataObj, componentCredentials);
         }
-        return JSON.parse(decryptedData.toString(crypto_js_1.enc.Utf8));
+        return JSON.parse(decryptedDataStr);
     }
     catch (e) {
         console.error(e);
@@ -1212,6 +1287,14 @@ const decryptCredentialData = async (encryptedData, componentCredentialName, com
     }
 };
 exports.decryptCredentialData = decryptCredentialData;
+/**
+ * Generate an encryption key
+ * @returns {string}
+ */
+const generateEncryptKey = () => {
+    return (0, crypto_1.randomBytes)(24).toString('base64');
+};
+exports.generateEncryptKey = generateEncryptKey;
 /**
  * Transform ICredentialBody from req to Credential entity
  * @param {ICredentialReqBody} body
@@ -1425,15 +1508,6 @@ const convertToValidFilename = (word) => {
         .toLowerCase();
 };
 exports.convertToValidFilename = convertToValidFilename;
-const setDateToStartOrEndOfDay = (dateTimeStr, setHours) => {
-    const date = new Date(dateTimeStr);
-    if (isNaN(date.getTime())) {
-        return undefined;
-    }
-    setHours === 'start' ? date.setHours(0, 0, 0, 0) : date.setHours(23, 59, 59, 999);
-    return date;
-};
-exports.setDateToStartOrEndOfDay = setDateToStartOrEndOfDay;
 const aMonthAgo = () => {
     const date = new Date();
     date.setMonth(new Date().getMonth() - 1);
@@ -1459,4 +1533,38 @@ const getUploadPath = () => {
         : path_1.default.join((0, exports.getUserHome)(), '.flowise', 'uploads');
 };
 exports.getUploadPath = getUploadPath;
+const getOrgId = () => {
+    const settingsContent = fs_1.default.readFileSync((0, exports.getUserSettingsFilePath)(), 'utf8');
+    try {
+        const settings = JSON.parse(settingsContent);
+        return settings.instanceId;
+    }
+    catch (error) {
+        return '';
+    }
+};
+const getMulterStorage = () => {
+    const storageType = process.env.STORAGE_TYPE ? process.env.STORAGE_TYPE : 'local';
+    if (storageType === 's3') {
+        const s3Client = (0, flowise_components_1.getS3Config)().s3Client;
+        const Bucket = (0, flowise_components_1.getS3Config)().Bucket;
+        const upload = (0, multer_1.default)({
+            storage: (0, multer_s3_1.default)({
+                s3: s3Client,
+                bucket: Bucket,
+                metadata: function (req, file, cb) {
+                    cb(null, { fieldName: file.fieldname, originalName: file.originalname, orgId: getOrgId() });
+                },
+                key: function (req, file, cb) {
+                    cb(null, `${getOrgId()}/${Date.now().toString()}`);
+                }
+            })
+        });
+        return upload;
+    }
+    else {
+        return (0, multer_1.default)({ dest: (0, exports.getUploadPath)() });
+    }
+};
+exports.getMulterStorage = getMulterStorage;
 //# sourceMappingURL=index.js.map

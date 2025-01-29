@@ -180,12 +180,13 @@ const prepareAgent = async (nodeData, options, flowObj) => {
     const model = nodeData.inputs?.model;
     const maxIterations = nodeData.inputs?.maxIterations;
     const memory = nodeData.inputs?.memory;
-    const systemMessage = nodeData.inputs?.systemMessage;
+    let systemMessage = nodeData.inputs?.systemMessage;
     let tools = nodeData.inputs?.tools;
     tools = (0, lodash_1.flatten)(tools);
     const inputKey = memory.inputKey ? memory.inputKey : 'input';
     const memoryKey = memory.memoryKey ? memory.memoryKey : 'chat_history';
     const prependMessages = options?.prependMessages;
+    systemMessage = (0, utils_1.transformBracesWithColon)(systemMessage);
     let promptMessage = systemMessage ? systemMessage : defaultSystemMessage;
     if (memory.memoryKey)
         promptMessage = promptMessage.replaceAll('{chat_history}', `{${memory.memoryKey}}`);

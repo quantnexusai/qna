@@ -2,9 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SSEStreamer = void 0;
 class SSEStreamer {
-    constructor(app) {
+    constructor() {
         this.clients = {};
-        this.app = app;
     }
     addExternalClient(chatId, res) {
         this.clients[chatId] = { clientType: 'EXTERNAL', response: res, started: false };
@@ -22,17 +21,6 @@ class SSEStreamer {
             client.response.write('message\ndata:' + JSON.stringify(clientResponse) + '\n\n');
             client.response.end();
             delete this.clients[chatId];
-        }
-    }
-    // Send SSE message to a specific client
-    streamEvent(chatId, data) {
-        const client = this.clients[chatId];
-        if (client) {
-            const clientResponse = {
-                event: 'start',
-                data: data
-            };
-            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n');
         }
     }
     streamCustomEvent(chatId, eventType, data) {

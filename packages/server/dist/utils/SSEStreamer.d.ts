@@ -1,4 +1,3 @@
-import express from 'express';
 import { Response } from 'express';
 import { IServerSideEventStreamer } from 'flowise-components';
 type Client = {
@@ -10,12 +9,9 @@ export declare class SSEStreamer implements IServerSideEventStreamer {
     clients: {
         [id: string]: Client;
     };
-    app: express.Application;
-    constructor(app: express.Application);
     addExternalClient(chatId: string, res: Response): void;
     addClient(chatId: string, res: Response): void;
     removeClient(chatId: string): void;
-    streamEvent(chatId: string, data: string): void;
     streamCustomEvent(chatId: string, eventType: string, data: any): void;
     streamStartEvent(chatId: string, data: string): void;
     streamTokenEvent(chatId: string, data: string): void;

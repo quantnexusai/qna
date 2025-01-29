@@ -1,12 +1,27 @@
 import { IServerSideEventStreamer } from 'flowise-components';
-import { IChatFlow, IncomingInput } from '../Interface';
+import { IChatFlow, IComponentNodes, IDepthQueue, IReactFlowNode, IReactFlowEdge, IMessage, IncomingInput, IFlowConfig } from '../Interface';
+import { DataSource } from 'typeorm';
+import { CachePool } from '../CachePool';
 /**
  * Build Agent Graph
- * @param {IChatFlow} chatflow
- * @param {string} chatId
- * @param {string} sessionId
- * @param {ICommonObject} incomingInput
- * @param {boolean} isInternal
- * @param {string} baseURL
  */
-export declare const buildAgentGraph: (chatflow: IChatFlow, chatId: string, apiMessageId: string, sessionId: string, incomingInput: IncomingInput, isInternal: boolean, baseURL?: string, sseStreamer?: IServerSideEventStreamer, shouldStreamResponse?: boolean, uploadedFilesContent?: string) => Promise<any>;
+export declare const buildAgentGraph: ({ agentflow, flowConfig, incomingInput, nodes, edges, initializedNodes, endingNodeIds, startingNodeIds, depthQueue, chatHistory, uploadedFilesContent, appDataSource, componentNodes, sseStreamer, shouldStreamResponse, cachePool, baseURL, signal }: {
+    agentflow: IChatFlow;
+    flowConfig: IFlowConfig;
+    incomingInput: IncomingInput;
+    nodes: IReactFlowNode[];
+    edges: IReactFlowEdge[];
+    initializedNodes: IReactFlowNode[];
+    endingNodeIds: string[];
+    startingNodeIds: string[];
+    depthQueue: IDepthQueue;
+    chatHistory: IMessage[];
+    uploadedFilesContent: string;
+    appDataSource: DataSource;
+    componentNodes: IComponentNodes;
+    sseStreamer: IServerSideEventStreamer;
+    shouldStreamResponse: boolean;
+    cachePool: CachePool;
+    baseURL: string;
+    signal?: AbortController;
+}) => Promise<any>;

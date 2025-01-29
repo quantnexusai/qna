@@ -67,6 +67,8 @@ export interface INodeParams {
     tabIdentifier?: string;
     tabs?: Array<INodeParams>;
     refresh?: boolean;
+    freeSolo?: boolean;
+    loadPreviousNodes?: boolean;
 }
 export interface INodeExecutionData {
     [key: string]: CommonType | CommonType[] | ICommonObject | ICommonObject[];
@@ -146,7 +148,7 @@ export interface IMultiAgentNode {
     multiModalMessageContent?: MessageContentImageUrl[];
     checkpointMemory?: any;
 }
-type SeqAgentType = 'agent' | 'condition' | 'end' | 'start' | 'tool' | 'state' | 'llm';
+type SeqAgentType = 'agent' | 'condition' | 'end' | 'start' | 'tool' | 'state' | 'llm' | 'utilities';
 export type ConversationHistorySelection = 'user_question' | 'last_message' | 'all_messages' | 'empty';
 export interface ISeqAgentNode {
     id: string;
@@ -325,7 +327,6 @@ export interface IStateWithMessages extends ICommonObject {
     [key: string]: any;
 }
 export interface IServerSideEventStreamer {
-    streamEvent(chatId: string, data: string): void;
     streamStartEvent(chatId: string, data: any): void;
     streamTokenEvent(chatId: string, data: string): void;
     streamCustomEvent(chatId: string, eventType: string, data: any): void;

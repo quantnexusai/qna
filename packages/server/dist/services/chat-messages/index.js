@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const http_status_codes_1 = require("http-status-codes");
+const Interface_1 = require("../../Interface");
 const getChatMessage_1 = require("../../utils/getChatMessage");
 const addChatMesage_1 = require("../../utils/addChatMesage");
 const getRunningExpressApp_1 = require("../../utils/getRunningExpressApp");
@@ -24,9 +25,21 @@ const createChatMessage = async (chatMessage) => {
     }
 };
 // Get all chatmessages from chatflowid
-const getAllChatMessages = async (chatflowId, chatTypeFilter, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes) => {
+const getAllChatMessages = async (chatflowId, chatTypes, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes) => {
     try {
-        const dbResponse = await (0, getChatMessage_1.utilGetChatMessage)(chatflowId, chatTypeFilter, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes);
+        const dbResponse = await (0, getChatMessage_1.utilGetChatMessage)({
+            chatflowid: chatflowId,
+            chatTypes,
+            sortOrder,
+            chatId,
+            memoryType,
+            sessionId,
+            startDate,
+            endDate,
+            messageId,
+            feedback,
+            feedbackTypes
+        });
         return dbResponse;
     }
     catch (error) {
@@ -34,9 +47,21 @@ const getAllChatMessages = async (chatflowId, chatTypeFilter, sortOrder = 'ASC',
     }
 };
 // Get internal chatmessages from chatflowid
-const getAllInternalChatMessages = async (chatflowId, chatTypeFilter, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes) => {
+const getAllInternalChatMessages = async (chatflowId, chatTypes, sortOrder = 'ASC', chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes) => {
     try {
-        const dbResponse = await (0, getChatMessage_1.utilGetChatMessage)(chatflowId, chatTypeFilter, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes);
+        const dbResponse = await (0, getChatMessage_1.utilGetChatMessage)({
+            chatflowid: chatflowId,
+            chatTypes,
+            sortOrder,
+            chatId,
+            memoryType,
+            sessionId,
+            startDate,
+            endDate,
+            messageId,
+            feedback,
+            feedbackTypes
+        });
         return dbResponse;
     }
     catch (error) {
@@ -86,15 +111,15 @@ const removeChatMessagesByMessageIds = async (chatflowid, chatIdMap, messageIds)
 const abortChatMessage = async (chatId, chatflowid) => {
     try {
         const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
-        const endingNodeData = appServer.chatflowPool.activeChatflows[`${chatflowid}_${chatId}`]?.endingNodeData;
-        if (endingNodeData && endingNodeData.signal) {
-            try {
-                endingNodeData.signal.abort();
-                await appServer.chatflowPool.remove(`${chatflowid}_${chatId}`);
-            }
-            catch (e) {
-                logger_1.default.error(`[server]: Error aborting chat message for ${chatflowid}, chatId ${chatId}: ${e}`);
-            }
+        const id = `${chatflowid}_${chatId}`;
+        if (process.env.MODE === Interface_1.MODE.QUEUE) {
+            await appServer.queueManager.getPredictionQueueEventsProducer().publishEvent({
+                eventName: 'abort',
+                id
+            });
+        }
+        else {
+            appServer.abortControllerPool.abort(id);
         }
     }
     catch (error) {

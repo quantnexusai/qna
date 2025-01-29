@@ -49,22 +49,19 @@ const createChatMessage = async (req, res, next) => {
 };
 const getAllChatMessages = async (req, res, next) => {
     try {
-        let chatTypeFilter = req.query?.chatType;
-        if (chatTypeFilter) {
+        const _chatTypes = req.query?.chatType;
+        let chatTypes;
+        if (_chatTypes) {
             try {
-                const chatTypeFilterArray = JSON.parse(chatTypeFilter);
-                if (chatTypeFilterArray.includes(Interface_1.ChatType.EXTERNAL) && chatTypeFilterArray.includes(Interface_1.ChatType.INTERNAL)) {
-                    chatTypeFilter = undefined;
+                if (Array.isArray(_chatTypes)) {
+                    chatTypes = _chatTypes;
                 }
-                else if (chatTypeFilterArray.includes(Interface_1.ChatType.EXTERNAL)) {
-                    chatTypeFilter = Interface_1.ChatType.EXTERNAL;
-                }
-                else if (chatTypeFilterArray.includes(Interface_1.ChatType.INTERNAL)) {
-                    chatTypeFilter = Interface_1.ChatType.INTERNAL;
+                else {
+                    chatTypes = JSON.parse(_chatTypes);
                 }
             }
             catch (e) {
-                return res.status(500).send(e);
+                chatTypes = [_chatTypes];
             }
         }
         const sortOrder = req.query?.order;
@@ -82,7 +79,7 @@ const getAllChatMessages = async (req, res, next) => {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new internalFlowiseError_1.InternalFlowiseError(http_status_codes_1.StatusCodes.PRECONDITION_FAILED, `Error: chatMessageController.getAllChatMessages - id not provided!`);
         }
-        const apiResponse = await chat_messages_1.default.getAllChatMessages(req.params.id, chatTypeFilter, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypeFilters);
+        const apiResponse = await chat_messages_1.default.getAllChatMessages(req.params.id, chatTypes, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypeFilters);
         return res.json(parseAPIResponse(apiResponse));
     }
     catch (error) {
@@ -103,7 +100,7 @@ const getAllInternalChatMessages = async (req, res, next) => {
         if (feedbackTypeFilters) {
             feedbackTypeFilters = getFeedbackTypeFilters(feedbackTypeFilters);
         }
-        const apiResponse = await chat_messages_1.default.getAllInternalChatMessages(req.params.id, Interface_1.ChatType.INTERNAL, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypeFilters);
+        const apiResponse = await chat_messages_1.default.getAllInternalChatMessages(req.params.id, [Interface_1.ChatType.INTERNAL], sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypeFilters);
         return res.json(parseAPIResponse(apiResponse));
     }
     catch (error) {
@@ -127,7 +124,21 @@ const removeAllChatMessages = async (req, res, next) => {
         const chatId = req.query?.chatId;
         const memoryType = req.query?.memoryType;
         const sessionId = req.query?.sessionId;
-        const _chatType = req.query?.chatType;
+        const _chatTypes = req.query?.chatType;
+        let chatTypes;
+        if (_chatTypes) {
+            try {
+                if (Array.isArray(_chatTypes)) {
+                    chatTypes = _chatTypes;
+                }
+                else {
+                    chatTypes = JSON.parse(_chatTypes);
+                }
+            }
+            catch (e) {
+                chatTypes = [_chatTypes];
+            }
+        }
         const startDate = req.query?.startDate;
         const endDate = req.query?.endDate;
         const isClearFromViewMessageDialog = req.query?.isClearFromViewMessageDialog;
@@ -138,8 +149,19 @@ const removeAllChatMessages = async (req, res, next) => {
         if (!chatId) {
             const isFeedback = feedbackTypeFilters?.length ? true : false;
             const hardDelete = req.query?.hardDelete;
-            const messages = await (0, getChatMessage_1.utilGetChatMessage)(chatflowid, _chatType, undefined, undefined, undefined, undefined, startDate, endDate, undefined, isFeedback, feedbackTypeFilters);
+            const messages = await (0, getChatMessage_1.utilGetChatMessage)({
+                chatflowid,
+                chatTypes,
+                startDate,
+                endDate,
+                feedback: isFeedback,
+                feedbackTypes: feedbackTypeFilters
+            });
             const messageIds = messages.map((message) => message.id);
+            if (messages.length === 0) {
+                const result = { raw: [], affected: 0 };
+                return res.json(result);
+            }
             // Categorize by chatId_memoryType_sessionId
             const chatIdMap = new Map();
             messages.forEach((message) => {
@@ -181,11 +203,12 @@ const removeAllChatMessages = async (req, res, next) => {
                 deleteOptions.memoryType = memoryType;
             if (sessionId)
                 deleteOptions.sessionId = sessionId;
-            if (_chatType)
-                deleteOptions.chatType = _chatType;
+            if (chatTypes && chatTypes.length > 0) {
+                deleteOptions.chatType = (0, typeorm_1.In)(chatTypes);
+            }
             if (startDate && endDate) {
-                const fromDate = (0, utils_1.setDateToStartOrEndOfDay)(startDate, 'start');
-                const toDate = (0, utils_1.setDateToStartOrEndOfDay)(endDate, 'end');
+                const fromDate = new Date(startDate);
+                const toDate = new Date(endDate);
                 deleteOptions.createdDate = (0, typeorm_1.Between)(fromDate ?? (0, utils_1.aMonthAgo)(), toDate ?? new Date());
             }
             const apiResponse = await chat_messages_1.default.removeAllChatMessages(chatId, chatflowid, deleteOptions);

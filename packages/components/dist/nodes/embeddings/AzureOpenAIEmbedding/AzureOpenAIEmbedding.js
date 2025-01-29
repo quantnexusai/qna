@@ -10,7 +10,7 @@ class AzureOpenAIEmbedding_Embeddings {
     constructor() {
         this.label = 'Azure OpenAI Embeddings';
         this.name = 'azureOpenAIEmbeddings';
-        this.version = 1.0;
+        this.version = 2.0;
         this.type = 'AzureOpenAIEmbeddings';
         this.icon = 'Azure.svg';
         this.category = 'Embeddings';
@@ -45,6 +45,13 @@ class AzureOpenAIEmbedding_Embeddings {
                 type: 'string',
                 optional: true,
                 additionalParams: true
+            },
+            {
+                label: 'BaseOptions',
+                name: 'baseOptions',
+                type: 'json',
+                optional: true,
+                additionalParams: true
             }
         ];
     }
@@ -52,6 +59,7 @@ class AzureOpenAIEmbedding_Embeddings {
         const batchSize = nodeData.inputs?.batchSize;
         const timeout = nodeData.inputs?.timeout;
         const basePath = nodeData.inputs?.basepath;
+        const baseOptions = nodeData.inputs?.baseOptions;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const azureOpenAIApiKey = (0, utils_1.getCredentialParam)('azureOpenAIApiKey', credentialData, nodeData);
         const azureOpenAIApiInstanceName = (0, utils_1.getCredentialParam)('azureOpenAIApiInstanceName', credentialData, nodeData);
@@ -68,6 +76,17 @@ class AzureOpenAIEmbedding_Embeddings {
             obj.batchSize = parseInt(batchSize, 10);
         if (timeout)
             obj.timeout = parseInt(timeout, 10);
+        if (baseOptions) {
+            try {
+                const parsedBaseOptions = typeof baseOptions === 'object' ? baseOptions : JSON.parse(baseOptions);
+                obj.configuration = {
+                    defaultHeaders: parsedBaseOptions
+                };
+            }
+            catch (exception) {
+                console.error('Error parsing base options', exception);
+            }
+        }
         const model = new openai_1.OpenAIEmbeddings(obj);
         return model;
     }

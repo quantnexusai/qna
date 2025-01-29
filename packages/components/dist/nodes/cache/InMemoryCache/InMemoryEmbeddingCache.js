@@ -31,23 +31,23 @@ class InMemoryEmbeddingCache {
     async init(nodeData, _, options) {
         const namespace = nodeData.inputs?.namespace;
         const underlyingEmbeddings = nodeData.inputs?.embeddings;
-        const memoryMap = options.cachePool.getEmbeddingCache(options.chatflowid) ?? {};
+        const memoryMap = (await options.cachePool.getEmbeddingCache(options.chatflowid)) ?? {};
         const inMemCache = new InMemoryEmbeddingCacheExtended(memoryMap);
         inMemCache.mget = async (keys) => {
-            const memory = options.cachePool.getEmbeddingCache(options.chatflowid) ?? inMemCache.store;
+            const memory = (await options.cachePool.getEmbeddingCache(options.chatflowid)) ?? inMemCache.store;
             return keys.map((key) => memory[key]);
         };
         inMemCache.mset = async (keyValuePairs) => {
             for (const [key, value] of keyValuePairs) {
                 inMemCache.store[key] = value;
             }
-            options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store);
+            await options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store);
         };
         inMemCache.mdelete = async (keys) => {
             for (const key of keys) {
                 delete inMemCache.store[key];
             }
-            options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store);
+            await options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store);
         };
         return cache_backed_1.CacheBackedEmbeddings.fromBytesStore(underlyingEmbeddings, inMemCache, {
             namespace: namespace

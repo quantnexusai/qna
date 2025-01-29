@@ -18,6 +18,8 @@ class Chroma_VectorStores {
                 const recordManager = nodeData.inputs?.recordManager;
                 const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
                 const chromaApiKey = (0, utils_1.getCredentialParam)('chromaApiKey', credentialData, nodeData);
+                const chromaTenant = (0, utils_1.getCredentialParam)('chromaTenant', credentialData, nodeData);
+                const chromaDatabase = (0, utils_1.getCredentialParam)('chromaDatabase', credentialData, nodeData);
                 const flattenDocs = docs && docs.length ? (0, lodash_1.flatten)(docs) : [];
                 const finalDocs = [];
                 for (let i = 0; i < flattenDocs.length; i += 1) {
@@ -30,6 +32,10 @@ class Chroma_VectorStores {
                     obj.url = chromaURL;
                 if (chromaApiKey)
                     obj.chromaApiKey = chromaApiKey;
+                if (chromaTenant)
+                    obj.chromaTenant = chromaTenant;
+                if (chromaDatabase)
+                    obj.chromaDatabase = chromaDatabase;
                 try {
                     if (recordManager) {
                         const vectorStore = await core_1.ChromaExtended.fromExistingCollection(embeddings, obj);
@@ -62,11 +68,17 @@ class Chroma_VectorStores {
                 const recordManager = nodeData.inputs?.recordManager;
                 const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
                 const chromaApiKey = (0, utils_1.getCredentialParam)('chromaApiKey', credentialData, nodeData);
+                const chromaTenant = (0, utils_1.getCredentialParam)('chromaTenant', credentialData, nodeData);
+                const chromaDatabase = (0, utils_1.getCredentialParam)('chromaDatabase', credentialData, nodeData);
                 const obj = { collectionName };
                 if (chromaURL)
                     obj.url = chromaURL;
                 if (chromaApiKey)
                     obj.chromaApiKey = chromaApiKey;
+                if (chromaTenant)
+                    obj.chromaTenant = chromaTenant;
+                if (chromaDatabase)
+                    obj.chromaDatabase = chromaDatabase;
                 try {
                     if (recordManager) {
                         const vectorStoreName = collectionName;
@@ -173,12 +185,18 @@ class Chroma_VectorStores {
         const k = topK ? parseFloat(topK) : 4;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const chromaApiKey = (0, utils_1.getCredentialParam)('chromaApiKey', credentialData, nodeData);
+        const chromaTenant = (0, utils_1.getCredentialParam)('chromaTenant', credentialData, nodeData);
+        const chromaDatabase = (0, utils_1.getCredentialParam)('chromaDatabase', credentialData, nodeData);
         const chromaMetadataFilter = nodeData.inputs?.chromaMetadataFilter;
         const obj = { collectionName };
         if (chromaURL)
             obj.url = chromaURL;
         if (chromaApiKey)
             obj.chromaApiKey = chromaApiKey;
+        if (chromaTenant)
+            obj.chromaTenant = chromaTenant;
+        if (chromaDatabase)
+            obj.chromaDatabase = chromaDatabase;
         if (chromaMetadataFilter) {
             const metadatafilter = typeof chromaMetadataFilter === 'object' ? chromaMetadataFilter : JSON.parse(chromaMetadataFilter);
             obj.filter = metadatafilter;

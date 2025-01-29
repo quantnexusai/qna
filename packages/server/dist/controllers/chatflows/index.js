@@ -121,7 +121,8 @@ const updateChatflow = async (req, res, next) => {
         const updateChatFlow = new ChatFlow_1.ChatFlow();
         Object.assign(updateChatFlow, body);
         updateChatFlow.id = chatflow.id;
-        (0, rateLimit_1.updateRateLimiter)(updateChatFlow);
+        const rateLimiterManager = rateLimit_1.RateLimiterManager.getInstance();
+        await rateLimiterManager.updateRateLimiter(updateChatFlow);
         const apiResponse = await chatflows_1.default.updateChatflow(chatflow, updateChatFlow);
         return res.json(apiResponse);
     }

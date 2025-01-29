@@ -163,12 +163,13 @@ const prepareAgent = async (nodeData, options, flowObj) => {
     const model = nodeData.inputs?.model;
     const maxIterations = nodeData.inputs?.maxIterations;
     const memory = nodeData.inputs?.memory;
-    const systemMessage = nodeData.inputs?.systemMessage;
+    let systemMessage = nodeData.inputs?.systemMessage;
     let tools = nodeData.inputs?.tools;
     tools = (0, lodash_1.flatten)(tools);
     const memoryKey = memory.memoryKey ? memory.memoryKey : 'chat_history';
     const inputKey = memory.inputKey ? memory.inputKey : 'input';
     const vectorStoreRetriever = nodeData.inputs?.vectorStoreRetriever;
+    systemMessage = (0, utils_1.transformBracesWithColon)(systemMessage);
     const prompt = prompts_1.ChatPromptTemplate.fromMessages([
         ['system', systemMessage ? systemMessage : `You are a helpful AI assistant.`],
         new prompts_1.MessagesPlaceholder(memoryKey),

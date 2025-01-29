@@ -18,7 +18,7 @@ class AzureChatOpenAI_ChatModels {
         };
         this.label = 'Azure ChatOpenAI';
         this.name = 'azureChatOpenAI';
-        this.version = 6.0;
+        this.version = 7.0;
         this.type = 'AzureChatOpenAI';
         this.icon = 'Azure.svg';
         this.category = 'Chat Models';
@@ -108,6 +108,13 @@ class AzureChatOpenAI_ChatModels {
                 additionalParams: true
             },
             {
+                label: 'BaseOptions',
+                name: 'baseOptions',
+                type: 'json',
+                optional: true,
+                additionalParams: true
+            },
+            {
                 label: 'Allow Image Uploads',
                 name: 'allowImageUploads',
                 type: 'boolean',
@@ -151,6 +158,7 @@ class AzureChatOpenAI_ChatModels {
         const cache = nodeData.inputs?.cache;
         const topP = nodeData.inputs?.topP;
         const basePath = nodeData.inputs?.basepath;
+        const baseOptions = nodeData.inputs?.baseOptions;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const azureOpenAIApiKey = (0, utils_1.getCredentialParam)('azureOpenAIApiKey', credentialData, nodeData);
         const azureOpenAIApiInstanceName = (0, utils_1.getCredentialParam)('azureOpenAIApiInstanceName', credentialData, nodeData);
@@ -181,6 +189,17 @@ class AzureChatOpenAI_ChatModels {
             obj.topP = parseFloat(topP);
         if (basePath)
             obj.azureOpenAIBasePath = basePath;
+        if (baseOptions) {
+            try {
+                const parsedBaseOptions = typeof baseOptions === 'object' ? baseOptions : JSON.parse(baseOptions);
+                obj.configuration = {
+                    defaultHeaders: parsedBaseOptions
+                };
+            }
+            catch (exception) {
+                console.error('Error parsing base options', exception);
+            }
+        }
         const multiModalOption = {
             image: {
                 allowImageUploads: allowImageUploads ?? false,

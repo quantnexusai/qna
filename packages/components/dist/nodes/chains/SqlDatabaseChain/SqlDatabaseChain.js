@@ -150,7 +150,6 @@ class SqlDatabaseChain_Chains {
                 if (shouldStreamResponse) {
                     (0, Moderation_1.streamResponse)(sseStreamer, chatId, e.message);
                 }
-                // streamResponse(options.socketIO && options.socketIOClientId, e.message, options.socketIO, options.socketIOClientId)
                 return (0, OutputParserHelpers_1.formatResponse)(e.message);
             }
         }
@@ -191,6 +190,7 @@ const getSQLDBChain = async (databaseType, url, llm, includesTables, ignoreTable
         topK: topK
     };
     if (customPrompt) {
+        customPrompt = (0, utils_1.transformBracesWithColon)(customPrompt);
         const options = {
             template: customPrompt,
             inputVariables: (0, utils_1.getInputVariables)(customPrompt)

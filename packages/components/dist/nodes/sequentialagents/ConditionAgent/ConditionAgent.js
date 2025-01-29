@@ -104,7 +104,7 @@ class ConditionAgent_SeqAgents {
     constructor() {
         this.label = 'Condition Agent';
         this.name = 'seqConditionAgent';
-        this.version = 3.0;
+        this.version = 3.1;
         this.type = 'ConditionAgent';
         this.icon = 'condition.svg';
         this.category = 'Sequential Agents';
@@ -119,9 +119,10 @@ class ConditionAgent_SeqAgents {
                 placeholder: 'Condition Agent'
             },
             {
-                label: 'Start | Agent | LLM | Tool Node',
+                label: 'Sequential Node',
                 name: 'sequentialNode',
-                type: 'Start | Agent | LLMNode | ToolNode',
+                type: 'Start | Agent | LLMNode | ToolNode | CustomFunction | ExecuteFlow',
+                description: 'Can be connected to one of the following nodes: Start, Agent, LLM Node, Tool Node, Custom Function, Execute Flow',
                 list: true
             },
             {
@@ -338,7 +339,9 @@ class ConditionAgent_SeqAgents {
         const output = nodeData.outputs?.output;
         const sequentialNodes = nodeData.inputs?.sequentialNode;
         let agentPrompt = nodeData.inputs?.systemMessagePrompt;
+        agentPrompt = (0, utils_1.transformBracesWithColon)(agentPrompt);
         let humanPrompt = nodeData.inputs?.humanMessagePrompt;
+        humanPrompt = (0, utils_1.transformBracesWithColon)(humanPrompt);
         const promptValuesStr = nodeData.inputs?.promptValues;
         const conditionAgentStructuredOutput = nodeData.inputs?.conditionAgentStructuredOutput;
         const model = nodeData.inputs?.model;

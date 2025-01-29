@@ -1,13 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const lodash_1 = require("lodash");
-const csv_1 = require("@langchain/community/document_loaders/fs/csv");
+const CsvLoader_1 = require("./CsvLoader");
 const src_1 = require("../../../src");
 class Csv_DocumentLoaders {
     constructor() {
         this.label = 'Csv File';
         this.name = 'csvFile';
-        this.version = 2.0;
+        this.version = 3.0;
         this.type = 'Document';
         this.icon = 'csv.svg';
         this.category = 'Document Loaders';
@@ -68,19 +67,10 @@ class Csv_DocumentLoaders {
             }
         ];
     }
-    async init(nodeData, _, options) {
-        const textSplitter = nodeData.inputs?.textSplitter;
+    getFiles(nodeData) {
         const csvFileBase64 = nodeData.inputs?.csvFile;
-        const columnName = nodeData.inputs?.columnName;
-        const metadata = nodeData.inputs?.metadata;
-        const output = nodeData.outputs?.output;
-        const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys;
-        let omitMetadataKeys = [];
-        if (_omitMetadataKeys) {
-            omitMetadataKeys = _omitMetadataKeys.split(',').map((key) => key.trim());
-        }
-        let docs = [];
         let files = [];
+        let fromStorage = true;
         if (csvFileBase64.startsWith('FILE-STORAGE::')) {
             const fileName = csvFileBase64.replace('FILE-STORAGE::', '');
             if (fileName.startsWith('[') && fileName.endsWith(']')) {
@@ -88,21 +78,6 @@ class Csv_DocumentLoaders {
             }
             else {
                 files = [fileName];
-            }
-            const chatflowid = options.chatflowid;
-            for (const file of files) {
-                if (!file)
-                    continue;
-                const fileData = await (0, src_1.getFileFromStorage)(file, chatflowid);
-                const blob = new Blob([fileData]);
-                const loader = new csv_1.CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim());
-                if (textSplitter) {
-                    docs = await loader.load();
-                    docs = await textSplitter.splitDocuments(docs);
-                }
-                else {
-                    docs.push(...(await loader.load()));
-                }
             }
         }
         else {
@@ -112,57 +87,40 @@ class Csv_DocumentLoaders {
             else {
                 files = [csvFileBase64];
             }
-            for (const file of files) {
-                if (!file)
-                    continue;
-                const splitDataURI = file.split(',');
-                splitDataURI.pop();
-                const bf = Buffer.from(splitDataURI.pop() || '', 'base64');
-                const blob = new Blob([bf]);
-                const loader = new csv_1.CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim());
-                if (textSplitter) {
-                    docs = await loader.load();
-                    docs = await textSplitter.splitDocuments(docs);
-                }
-                else {
-                    docs.push(...(await loader.load()));
-                }
-            }
+            fromStorage = false;
         }
-        if (metadata) {
-            const parsedMetadata = typeof metadata === 'object' ? metadata : JSON.parse(metadata);
-            docs = docs.map((doc) => ({
-                ...doc,
-                metadata: _omitMetadataKeys === '*'
-                    ? {
-                        ...parsedMetadata
-                    }
-                    : (0, lodash_1.omit)({
-                        ...doc.metadata,
-                        ...parsedMetadata
-                    }, omitMetadataKeys)
-            }));
+        return { files, fromStorage };
+    }
+    async getFileData(file, { chatflowid }, fromStorage) {
+        if (fromStorage) {
+            return (0, src_1.getFileFromStorage)(file, chatflowid);
         }
         else {
-            docs = docs.map((doc) => ({
-                ...doc,
-                metadata: _omitMetadataKeys === '*'
-                    ? {}
-                    : (0, lodash_1.omit)({
-                        ...doc.metadata
-                    }, omitMetadataKeys)
-            }));
+            const splitDataURI = file.split(',');
+            splitDataURI.pop();
+            return Buffer.from(splitDataURI.pop() || '', 'base64');
         }
-        if (output === 'document') {
-            return docs;
+    }
+    async init(nodeData, _, options) {
+        const textSplitter = nodeData.inputs?.textSplitter;
+        const columnName = nodeData.inputs?.columnName;
+        const metadata = nodeData.inputs?.metadata;
+        const output = nodeData.outputs?.output;
+        const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys;
+        let docs = [];
+        const chatflowid = options.chatflowid;
+        const { files, fromStorage } = this.getFiles(nodeData);
+        for (const file of files) {
+            if (!file)
+                continue;
+            const fileData = await this.getFileData(file, { chatflowid }, fromStorage);
+            const blob = new Blob([fileData]);
+            const loader = new CsvLoader_1.CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim());
+            // use spread instead of push, because it raises RangeError: Maximum call stack size exceeded when too many docs
+            docs = [...docs, ...(await (0, src_1.handleDocumentLoaderDocuments)(loader, textSplitter))];
         }
-        else {
-            let finaltext = '';
-            for (const doc of docs) {
-                finaltext += `${doc.pageContent}\n`;
-            }
-            return (0, src_1.handleEscapeCharacters)(finaltext, false);
-        }
+        docs = (0, src_1.handleDocumentLoaderMetadata)(docs, _omitMetadataKeys, metadata);
+        return (0, src_1.handleDocumentLoaderOutput)(docs, output);
     }
 }
 module.exports = { nodeClass: Csv_DocumentLoaders };

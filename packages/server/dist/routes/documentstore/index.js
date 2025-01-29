@@ -4,12 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const multer_1 = __importDefault(require("multer"));
-const utils_1 = require("../../utils");
 const documentstore_1 = __importDefault(require("../../controllers/documentstore"));
+const utils_1 = require("../../utils");
 const router = express_1.default.Router();
-const upload = (0, multer_1.default)({ dest: (0, utils_1.getUploadPath)() });
-router.post(['/upsert/', '/upsert/:id'], upload.array('files'), documentstore_1.default.upsertDocStoreMiddleware);
+router.post(['/upsert/', '/upsert/:id'], (0, utils_1.getMulterStorage)().array('files'), documentstore_1.default.upsertDocStoreMiddleware);
 router.post(['/refresh/', '/refresh/:id'], documentstore_1.default.refreshDocStoreMiddleware);
 /** Document Store Routes */
 // Create document store
@@ -22,6 +20,8 @@ router.get('/store/:id', documentstore_1.default.getDocumentStoreById);
 router.put('/store/:id', documentstore_1.default.updateDocumentStore);
 // Delete documentStore
 router.delete('/store/:id', documentstore_1.default.deleteDocumentStore);
+// Get document store configs
+router.get('/store-configs/:id/:loaderId', documentstore_1.default.getDocStoreConfigs);
 /** Component Nodes = Document Store - Loaders */
 // Get all loaders
 router.get('/components/loaders', documentstore_1.default.getDocumentLoaders);

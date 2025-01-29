@@ -1,0 +1,1 @@
+import{aE as e}from"./index-ChaGAcYI.js";const t=()=>e.get("/nodes"),n=o=>e.get(`/nodes/${o}`),s=o=>e.get(`/nodes/category/${o}`),c=o=>e.post("/node-custom-function",o),g={getAllNodes:t,getSpecificNode:n,executeCustomFunctionNode:c,getNodesByCategory:s};export{g as n};

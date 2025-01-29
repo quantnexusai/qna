@@ -128,7 +128,8 @@ class ConversationChain_Chains {
 }
 const prepareChatPrompt = (nodeData, humanImageMessages) => {
     const memory = nodeData.inputs?.memory;
-    const prompt = nodeData.inputs?.systemMessagePrompt;
+    let prompt = nodeData.inputs?.systemMessagePrompt;
+    prompt = (0, utils_1.transformBracesWithColon)(prompt);
     const chatPromptTemplate = nodeData.inputs?.chatPromptTemplate;
     let model = nodeData.inputs?.model;
     if (chatPromptTemplate && chatPromptTemplate.promptMessages.length) {

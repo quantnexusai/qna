@@ -3,6 +3,7 @@
  */
 import { IChatFlow, IComponentCredentials, IComponentNodes, ICredentialDataDecrypted, ICredentialReqBody, IDepthQueue, INodeData, INodeDependencies, INodeDirectedGraph, INodeOverrides, IOverrideConfig, IReactFlowEdge, IReactFlowNode, IVariable, IVariableOverride, IncomingInput } from '../Interface';
 import { ICommonObject, IDatabaseEntity, IMessage, IFileUpload } from 'flowise-components';
+import multer from 'multer';
 import { Credential } from '../database/entities/Credential';
 import { DataSource } from 'typeorm';
 import { CachePool } from '../CachePool';
@@ -116,7 +117,7 @@ export declare const clearSessionMemory: (reactFlowNodes: IReactFlowNode[], comp
  * @param {boolean} isAcceptVariable
  * @returns {string}
  */
-export declare const getVariableValue: (appDataSource: DataSource, paramValue: string | object, reactFlowNodes: IReactFlowNode[], question: string, chatHistory: IMessage[], isAcceptVariable?: boolean, flowData?: ICommonObject, uploadedFilesContent?: string, availableVariables?: IVariable[], variableOverrides?: ICommonObject[]) => Promise<any>;
+export declare const getVariableValue: (paramValue: string | object, reactFlowNodes: IReactFlowNode[], question: string, chatHistory: IMessage[], isAcceptVariable?: boolean, flowConfig?: ICommonObject, uploadedFilesContent?: string, availableVariables?: IVariable[], variableOverrides?: ICommonObject[]) => Promise<any>;
 /**
  * Loop through each inputs and resolve variable if neccessary
  * @param {INodeData} reactFlowNodeData
@@ -124,7 +125,7 @@ export declare const getVariableValue: (appDataSource: DataSource, paramValue: s
  * @param {string} question
  * @returns {INodeData}
  */
-export declare const resolveVariables: (appDataSource: DataSource, reactFlowNodeData: INodeData, reactFlowNodes: IReactFlowNode[], question: string, chatHistory: IMessage[], flowData?: ICommonObject, uploadedFilesContent?: string, availableVariables?: IVariable[], variableOverrides?: ICommonObject[]) => Promise<INodeData>;
+export declare const resolveVariables: (reactFlowNodeData: INodeData, reactFlowNodes: IReactFlowNode[], question: string, chatHistory: IMessage[], flowConfig?: ICommonObject, uploadedFilesContent?: string, availableVariables?: IVariable[], variableOverrides?: ICommonObject[]) => Promise<INodeData>;
 /**
  * Loop through each inputs and replace their value with override config values
  * @param {INodeData} flowNodeData
@@ -171,11 +172,6 @@ export declare const findAvailableConfigs: (reactFlowNodes: IReactFlowNode[], co
  */
 export declare const isFlowValidForStream: (reactFlowNodes: IReactFlowNode[], endingNodeData: INodeData) => boolean;
 /**
- * Generate an encryption key
- * @returns {string}
- */
-export declare const generateEncryptKey: () => string;
-/**
  * Returns the encryption key
  * @returns {Promise<string>}
  */
@@ -194,6 +190,11 @@ export declare const encryptCredentialData: (plainDataObj: ICredentialDataDecryp
  * @returns {Promise<ICredentialDataDecrypted>}
  */
 export declare const decryptCredentialData: (encryptedData: string, componentCredentialName?: string, componentCredentials?: IComponentCredentials) => Promise<ICredentialDataDecrypted>;
+/**
+ * Generate an encryption key
+ * @returns {string}
+ */
+export declare const generateEncryptKey: () => string;
 /**
  * Transform ICredentialBody from req to Credential entity
  * @param {ICredentialReqBody} body
@@ -273,7 +274,6 @@ export declare const getUserSettingsFilePath: () => string;
  */
 export declare const getAppVersion: () => Promise<any>;
 export declare const convertToValidFilename: (word: string) => string;
-export declare const setDateToStartOrEndOfDay: (dateTimeStr: string, setHours: "start" | "end") => Date | undefined;
 export declare const aMonthAgo: () => Date;
 export declare const getAPIOverrideConfig: (chatflow: IChatFlow) => {
     nodeOverrides: INodeOverrides;
@@ -281,4 +281,5 @@ export declare const getAPIOverrideConfig: (chatflow: IChatFlow) => {
     apiOverrideStatus: boolean;
 };
 export declare const getUploadPath: () => string;
+export declare const getMulterStorage: () => multer.Multer;
 export {};

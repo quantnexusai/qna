@@ -3,7 +3,7 @@ import { ChatMessage } from '../database/entities/ChatMessage';
 /**
  * Method that get chat messages.
  * @param {string} chatflowid
- * @param {ChatType} chatType
+ * @param {ChatType[]} chatTypes
  * @param {string} sortOrder
  * @param {string} chatId
  * @param {string} memoryType
@@ -13,4 +13,18 @@ import { ChatMessage } from '../database/entities/ChatMessage';
  * @param {boolean} feedback
  * @param {ChatMessageRatingType[]} feedbackTypes
  */
-export declare const utilGetChatMessage: (chatflowid: string, chatType: ChatType | undefined, sortOrder?: string, chatId?: string, memoryType?: string, sessionId?: string, startDate?: string, endDate?: string, messageId?: string, feedback?: boolean, feedbackTypes?: ChatMessageRatingType[]) => Promise<ChatMessage[]>;
+interface GetChatMessageParams {
+    chatflowid: string;
+    chatTypes?: ChatType[];
+    sortOrder?: string;
+    chatId?: string;
+    memoryType?: string;
+    sessionId?: string;
+    startDate?: string;
+    endDate?: string;
+    messageId?: string;
+    feedback?: boolean;
+    feedbackTypes?: ChatMessageRatingType[];
+}
+export declare const utilGetChatMessage: ({ chatflowid, chatTypes, sortOrder, chatId, memoryType, sessionId, startDate, endDate, messageId, feedback, feedbackTypes }: GetChatMessageParams) => Promise<ChatMessage[]>;
+export {};

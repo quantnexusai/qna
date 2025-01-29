@@ -7,22 +7,6 @@ const documents_1 = require("@langchain/core/documents");
 const utils_1 = require("../../../src/utils");
 const VectorStoreUtils_1 = require("../VectorStoreUtils");
 const indexing_1 = require("../../../src/indexing");
-let pineconeClientSingleton;
-let pineconeClientOption;
-const getPineconeClient = (option) => {
-    if (!pineconeClientSingleton) {
-        // if client doesn't exists
-        pineconeClientSingleton = new pinecone_1.Pinecone(option);
-        pineconeClientOption = option;
-        return pineconeClientSingleton;
-    }
-    else if (pineconeClientSingleton && !(0, lodash_1.isEqual)(option, pineconeClientOption)) {
-        // if client exists but option changed
-        pineconeClientSingleton = new pinecone_1.Pinecone(option);
-        return pineconeClientSingleton;
-    }
-    return pineconeClientSingleton;
-};
 class Pinecone_VectorStores {
     constructor() {
         //@ts-ignore
@@ -37,7 +21,7 @@ class Pinecone_VectorStores {
                 const isFileUploadEnabled = nodeData.inputs?.fileUpload;
                 const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
                 const pineconeApiKey = (0, utils_1.getCredentialParam)('pineconeApiKey', credentialData, nodeData);
-                const client = getPineconeClient({ apiKey: pineconeApiKey });
+                const client = new pinecone_1.Pinecone({ apiKey: pineconeApiKey });
                 const pineconeIndex = client.Index(_index);
                 const flattenDocs = docs && docs.length ? (0, lodash_1.flatten)(docs) : [];
                 const finalDocs = [];
@@ -88,7 +72,7 @@ class Pinecone_VectorStores {
                 const recordManager = nodeData.inputs?.recordManager;
                 const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
                 const pineconeApiKey = (0, utils_1.getCredentialParam)('pineconeApiKey', credentialData, nodeData);
-                const client = getPineconeClient({ apiKey: pineconeApiKey });
+                const client = new pinecone_1.Pinecone({ apiKey: pineconeApiKey });
                 const pineconeIndex = client.Index(_index);
                 const obj = {
                     pineconeIndex,
@@ -224,7 +208,7 @@ class Pinecone_VectorStores {
         const isFileUploadEnabled = nodeData.inputs?.fileUpload;
         const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential ?? '', options);
         const pineconeApiKey = (0, utils_1.getCredentialParam)('pineconeApiKey', credentialData, nodeData);
-        const client = getPineconeClient({ apiKey: pineconeApiKey });
+        const client = new pinecone_1.Pinecone({ apiKey: pineconeApiKey });
         const pineconeIndex = client.Index(index);
         const obj = {
             pineconeIndex,

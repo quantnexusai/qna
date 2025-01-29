@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const buildChatflow_1 = require("../../utils/buildChatflow");
 const getRunningExpressApp_1 = require("../../utils/getRunningExpressApp");
 const utils_1 = require("../../errors/utils");
+const Interface_1 = require("../../Interface");
 // Send input message and get prediction result (Internal)
 const createInternalPrediction = async (req, res, next) => {
     try {
@@ -12,7 +13,8 @@ const createInternalPrediction = async (req, res, next) => {
         }
         else {
             const apiResponse = await (0, buildChatflow_1.utilBuildChatflow)(req, true);
-            return res.json(apiResponse);
+            if (apiResponse)
+                return res.json(apiResponse);
         }
     }
     catch (error) {
@@ -30,6 +32,9 @@ const createAndStreamInternalPrediction = async (req, res, next) => {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no'); //nginx config: https://serverfault.com/a/801629
         res.flushHeaders();
+        if (process.env.MODE === Interface_1.MODE.QUEUE) {
+            (0, getRunningExpressApp_1.getRunningExpressApp)().redisSubscriber.subscribe(chatId);
+        }
         const apiResponse = await (0, buildChatflow_1.utilBuildChatflow)(req, true);
         sseStreamer.streamMetadataEvent(apiResponse.chatId, apiResponse);
     }

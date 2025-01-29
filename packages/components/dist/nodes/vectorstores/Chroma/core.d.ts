@@ -6,6 +6,8 @@ interface ChromaAuth {
 }
 export declare class ChromaExtended extends Chroma {
     chromaApiKey?: string;
+    chromaTenant?: string;
+    chromaDatabase?: string;
     constructor(embeddings: Embeddings, args: ChromaLibArgs & Partial<ChromaAuth>);
     static fromExistingCollection(embeddings: Embeddings, dbConfig: ChromaLibArgs & Partial<ChromaAuth>): Promise<Chroma>;
     ensureCollection(): Promise<Collection>;

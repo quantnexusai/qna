@@ -26,6 +26,12 @@ class ChromaExtended extends chroma_1.Chroma {
                         }
                     };
                 }
+                if (this.chromaTenant) {
+                    obj.tenant = this.chromaTenant;
+                }
+                if (this.chromaDatabase) {
+                    obj.database = this.chromaDatabase;
+                }
                 this.index = new chromadb_1.ChromaClient(obj);
             }
             try {

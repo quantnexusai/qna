@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -40,6 +50,7 @@ const nodes_1 = __importDefault(require("../nodes"));
 const DocumentStore_1 = require("../../database/entities/DocumentStore");
 const logger_1 = __importDefault(require("../../utils/logger"));
 const prompt_1 = require("../../utils/prompt");
+const constants_1 = require("../../utils/constants");
 const createAssistant = async (requestBody) => {
     try {
         const appServer = (0, getRunningExpressApp_1.getRunningExpressApp)();
@@ -399,26 +410,10 @@ const getDocumentStores = async () => {
 const getTools = async () => {
     try {
         const tools = await nodes_1.default.getAllNodesForCategory('Tools');
-        const whitelistTypes = [
-            'asyncOptions',
-            'options',
-            'multiOptions',
-            'datagrid',
-            'string',
-            'number',
-            'boolean',
-            'password',
-            'json',
-            'code',
-            'date',
-            'file',
-            'folder',
-            'tabs'
-        ];
         // filter out those tools that input params type are not in the list
         const filteredTools = tools.filter((tool) => {
             const inputs = tool.inputs || [];
-            return inputs.every((input) => whitelistTypes.includes(input.type));
+            return inputs.every((input) => constants_1.INPUT_PARAMS_TYPE.includes(input.type));
         });
         return filteredTools;
     }

@@ -15,15 +15,24 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-const lodash_1 = require("lodash");
 const s3_1 = require("@langchain/community/document_loaders/web/s3");
 const unstructured_1 = require("@langchain/community/document_loaders/fs/unstructured");
 const utils_1 = require("../../../src/utils");
@@ -475,10 +484,6 @@ class S3_DocumentLoaders {
         const maxCharacters = nodeData.inputs?.maxCharacters;
         const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys;
         const output = nodeData.outputs?.output;
-        let omitMetadataKeys = [];
-        if (_omitMetadataKeys) {
-            omitMetadataKeys = _omitMetadataKeys.split(',').map((key) => key.trim());
-        }
         let credentials;
         if (nodeData.credential) {
             const credentialData = await (0, utils_1.getCredentialData)(nodeData.credential, options);
@@ -549,48 +554,15 @@ class S3_DocumentLoaders {
                 if (unstructuredAPIKey)
                     obj.apiKey = unstructuredAPIKey;
                 const unstructuredLoader = new unstructured_1.UnstructuredLoader(filePath, obj);
-                let docs = await unstructuredLoader.load();
-                if (metadata) {
-                    const parsedMetadata = typeof metadata === 'object' ? metadata : JSON.parse(metadata);
-                    docs = docs.map((doc) => ({
-                        ...doc,
-                        metadata: _omitMetadataKeys === '*'
-                            ? {
-                                ...parsedMetadata
-                            }
-                            : (0, lodash_1.omit)({
-                                ...doc.metadata,
-                                ...parsedMetadata,
-                                [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
-                            }, omitMetadataKeys)
-                    }));
-                }
-                else {
-                    docs = docs.map((doc) => ({
-                        ...doc,
-                        metadata: _omitMetadataKeys === '*'
-                            ? {}
-                            : (0, lodash_1.omit)({
-                                ...doc.metadata,
-                                [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
-                            }, omitMetadataKeys)
-                    }));
-                }
-                fsDefault.rmSync(path.dirname(filePath), { recursive: true });
-                if (output === 'document') {
-                    return docs;
-                }
-                else {
-                    let finaltext = '';
-                    for (const doc of docs) {
-                        finaltext += `${doc.pageContent}\n`;
-                    }
-                    return (0, utils_1.handleEscapeCharacters)(finaltext, false);
-                }
+                let docs = await (0, utils_1.handleDocumentLoaderDocuments)(unstructuredLoader);
+                docs = (0, utils_1.handleDocumentLoaderMetadata)(docs, _omitMetadataKeys, metadata, sourceIdKey);
+                return (0, utils_1.handleDocumentLoaderOutput)(docs, output);
             }
             catch {
-                fsDefault.rmSync(path.dirname(filePath), { recursive: true });
                 throw new Error(`Failed to load file ${filePath} using unstructured loader.`);
+            }
+            finally {
+                fsDefault.rmSync(path.dirname(filePath), { recursive: true });
             }
         };
         return loader.load();

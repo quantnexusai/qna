@@ -238,7 +238,7 @@ class ExtendedLunaryHandler extends lunary_2.LunaryHandler {
             if (!this.thread) {
                 await this.initThread();
             }
-            const messageText = inputs.input;
+            const messageText = inputs.input || inputs.question;
             const messageId = this.thread.trackMessage({
                 content: messageText,
                 role: 'user'

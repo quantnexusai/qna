@@ -14,7 +14,12 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatMessageRatingType = exports.ChatType = void 0;
+exports.ChatMessageRatingType = exports.ChatType = exports.MODE = void 0;
+var MODE;
+(function (MODE) {
+    MODE["QUEUE"] = "queue";
+    MODE["MAIN"] = "main";
+})(MODE || (exports.MODE = MODE = {}));
 var ChatType;
 (function (ChatType) {
     ChatType["INTERNAL"] = "INTERNAL";

@@ -19,15 +19,15 @@ class InMemoryCache {
         this.inputs = [];
     }
     async init(nodeData, _, options) {
-        const memoryMap = options.cachePool.getLLMCache(options.chatflowid) ?? new Map();
+        const memoryMap = (await options.cachePool.getLLMCache(options.chatflowid)) ?? new Map();
         const inMemCache = new InMemoryCacheExtended(memoryMap);
         inMemCache.lookup = async (prompt, llmKey) => {
-            const memory = options.cachePool.getLLMCache(options.chatflowid) ?? inMemCache.cache;
+            const memory = (await options.cachePool.getLLMCache(options.chatflowid)) ?? inMemCache.cache;
             return Promise.resolve(memory.get(getCacheKey(prompt, llmKey)) ?? null);
         };
         inMemCache.update = async (prompt, llmKey, value) => {
             inMemCache.cache.set(getCacheKey(prompt, llmKey), value);
-            options.cachePool.addLLMCache(options.chatflowid, inMemCache.cache);
+            await options.cachePool.addLLMCache(options.chatflowid, inMemCache.cache);
         };
         return inMemCache;
     }

@@ -1,6 +1,9 @@
 import { DataSource } from 'typeorm';
 import { ICommonObject, IDatabaseEntity, IMessage, INodeData, IVariable } from './Interface';
 import { BaseMessage } from '@langchain/core/messages';
+import { Document } from '@langchain/core/documents';
+import { TextSplitter } from 'langchain/text_splitter';
+import { DocumentLoader } from 'langchain/document_loaders/base';
 export declare const numberOrExpressionRegex = "^(\\d+\\.?\\d*|{{.*}})$";
 export declare const notEmptyRegex = "(.|\\s)*\\S(.|\\s)*";
 export declare const FLOWISE_CHATID = "flowise_chatId";
@@ -43,6 +46,12 @@ export declare const getNodeModulesPackagePath: (packageName: string) => string;
  * @returns {boolean}
  */
 export declare const getInputVariables: (paramValue: string) => string[];
+/**
+ * Transform curly braces into double curly braces if the content includes a colon.
+ * @param input - The original string that may contain { ... } segments.
+ * @returns The transformed string, where { ... } containing a colon has been replaced with {{ ... }}.
+ */
+export declare const transformBracesWithColon: (input: string) => string;
 /**
  * Crawl all available urls given a domain url and limit
  * @param {string} url
@@ -178,3 +187,11 @@ export declare const extractOutputFromArray: (output: any) => string;
  * @returns {any}
  */
 export declare const resolveFlowObjValue: (obj: any, sourceObj: any) => any;
+export declare const handleDocumentLoaderOutput: (docs: Document[], output: string) => any;
+export declare const parseDocumentLoaderMetadata: (metadata: object | string) => object;
+export declare const handleDocumentLoaderMetadata: (docs: Document[], _omitMetadataKeys: string, metadata?: object | string, sourceIdKey?: string) => {
+    metadata: object;
+    pageContent: string;
+    id?: string;
+}[];
+export declare const handleDocumentLoaderDocuments: (loader: DocumentLoader, textSplitter?: TextSplitter) => Promise<Document<Record<string, any>>[]>;
